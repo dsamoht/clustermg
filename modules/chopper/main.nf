@@ -18,6 +18,6 @@ process CHOPPER {
 
     script:
     """
-    zcat ${raw_reads} | chopper --headcrop 40 -l 500 -q 10 --threads ${task.cpus} | gzip > qc_reads.fastq.gz
+    zcat ${raw_reads} | chopper --headcrop 40 --threads ${task.cpus} | chopper -l 500 --threads ${task.cpus} | chopper -q 10 --threads ${task.cpus} | gzip > qc_reads.fastq.gz
     """
 }
