@@ -38,6 +38,25 @@ workflow ANNOTATION_WF {
     DASTOOL(assembly, contig2bin_ch)
     TIARA(assembly)
     SEQKIT(DASTOOL.out.dasBins)
+
+    if(params.hmmerProfile != '') {
+        hmmInputFile = file(params.hmmerProfile)
+        type = ''
+        allLines = hmmInputFile.readLines()
+        for( line : allLines ) {
+            if (line =~ /^ALPH/) {
+                type = line
+                break
+            }
+        }
+        if(type == 'ALPH  amino') {
+            HMMER(genes = PRODIGAL.out.genesFaa, profileHmm = params.hmmerProfile)
+        } 
+        else if(type == 'ALPH  DNA') {
+            HMMER(genes = PRODIGAL.out.genesFna, profileHmm = params.hmmerProfile)
+        }         
+    }
+
     //CHECKM(DASTOOL.out.dasBins)
     //GTDBTK(DASTOOL.out.dasBins, params.gtdbtkDB)
     //COLLECT(SEQKIT.out, CHECKM.out, GTDBTK.out)
