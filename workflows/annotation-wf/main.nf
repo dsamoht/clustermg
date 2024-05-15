@@ -12,6 +12,7 @@ include { METABAT                           } from '../../modules/metabat'
 include { PRODIGAL                          } from '../../modules/prodigal'
 include { SEQKIT                            } from '../../modules/seqkit'
 include { TIARA                             } from '../../modules/tiara'
+include { HMMER                             } from '../../modules/hmmer'
 
 
 workflow ANNOTATION_WF {
