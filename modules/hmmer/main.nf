@@ -18,6 +18,6 @@ process HMMER {
 
     script:
     """
-    hmmsearch -o hmmer.out --domtbl hmmer_dom-table.txt ${profileHmm} ${genes}
+    hmmsearch -E 0.001 -o hmmer.out --domtbl hmmer_dom-table.txt ${profileHmm} ${genes}
     """
 }
