@@ -13,11 +13,11 @@ process HMMER {
     path profileHmm
 
     output:
-    path 'hmmer.out', emit: hmmerOutputFile
-    path 'hmmer_dom-table.txt', emit: hmmerDomainTable
+    path '*/hmmer.out', emit: hmmerOutputFile
+    path '*/hmmer_dom-table.txt', emit: hmmerDomainTable
 
     script:
     """
-    hmmsearch -E 0.001 -o hmmer.out --domtbl hmmer_dom-table.txt ${profileHmm} ${genes}
+    hmmsearch -E 0.001 -o hmmer --domtbl hmmer_dom-table.txt ${profileHmm} ${genes}
     """
 }
