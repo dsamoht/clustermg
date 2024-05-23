@@ -10,14 +10,23 @@ process HMMER {
 
     input:
     path genes
-    path profileHmm
+    path profileHmmPfam
+    path profileHmmKegg
 
     output:
-    path 'hmmer.out', emit: hmmerOutputFile
-    path 'hmmer_dom-table.txt', emit: hmmerDomainTable
+    path 'hmmer_pfam.out', emit: hmmerOutputFilePfam
+    path 'hmmer_dom-table_pfam.txt', emit: hmmerDomTablePfam
+    path 'hmmer_kegg.out', emit: hmmerOutputFileKegg
+    path 'hmmer_dom-table_kegg.txt', emit: hmmerDomTableKegg
 
     script:
     """
-    hmmsearch -E 0.001 -o hmmer.out --domtbl hmmer_dom-table.txt ${profileHmm} ${genes}
+    if [[ !  -z ${profileHmmPfam} ]]
+    then
+    hmmsearch -E 0.001 -o hmmer_pfam.out --domtbl hmmer_dom-table_pfam.txt ${profileHmmPfam} ${genes}
+    fi
+    if [[ !  -z ${profileHmmKegg} ]]
+    then
+    hmmsearch -E 0.001 -o hmmer_kegg.out --domtbl hmmer_dom-table_kegg.txt ${profileHmmKegg} ${genes}
     """
 }

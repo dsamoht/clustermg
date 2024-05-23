@@ -40,8 +40,8 @@ workflow ANNOTATION_WF {
     TIARA(assembly)
     SEQKIT(DASTOOL.out.dasBins)
 
-    if(params.hmmerProfile != '') {
-        HMMER(genes = PRODIGAL.out.genesFaa, profileHmm = params.hmmerProfile)
+    if(params.profilePfam != '' || params.profileKegg != '') {
+        HMMER(genes = PRODIGAL.out.genesFaa, profileHmmPfam = params.profilePfam, profileHmmKegg = params.profileKegg)
     }
 
     //CHECKM(DASTOOL.out.dasBins)
