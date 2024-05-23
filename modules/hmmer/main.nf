@@ -28,5 +28,6 @@ process HMMER {
     if [[ !  -z ${profileHmmKegg} ]]
     then
     hmmsearch -E 0.001 -o hmmer_kegg.out --domtbl hmmer_dom-table_kegg.txt ${profileHmmKegg} ${genes}
+    fi
     """
 }
