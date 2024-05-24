@@ -30,6 +30,6 @@ process HMMER {
     then
     hmmsearch -E 0.001 -o hmmer_kegg.out --domtbl hmmer_dom-table_kegg.txt ${profileHmmKegg} ${genes}
     fi
-    python ../../bin/hmmer_summary.py -r ${params.outdir}/hmmer
+    python ../../../bin/hmmer_summary.py -r ${params.outdir}/hmmer
     """
 }

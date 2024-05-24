@@ -21,7 +21,7 @@ process FEATURECOUNTS {
     script:
     """
     featureCounts -L -O --largestOverlap -t CDS -g ID -s 0 -a ${genesGff} -o featureCounts.txt ${sorted_bam}
-    python ../../bin/make_abundance_table.py -r ${params.outdir}/featurecounts
+    python ../../../bin/make_abundance_table.py -r ${params.outdir}/featurecounts
     """
 }
 
