@@ -16,10 +16,12 @@ process FEATURECOUNTS {
     output:
     path "*featureCounts.txt", emit: counts
     path "*featureCounts.txt.summary", emit: summary
+    path "abundance_table.tsv", emit abundance_table
 
     script:
     """
     featureCounts -L -O --largestOverlap -t CDS -g ID -s 0 -a ${genesGff} -o featureCounts.txt ${sorted_bam}
+    python ../../bin/make_abundance_table.py -r ${params.outdir}/featurecounts
     """
 }
 

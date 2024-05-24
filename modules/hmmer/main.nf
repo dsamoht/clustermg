@@ -18,6 +18,7 @@ process HMMER {
     path 'hmmer_dom-table_pfam.txt', emit: hmmerDomTablePfam
     path 'hmmer_kegg.out', emit: hmmerOutputFileKegg
     path 'hmmer_dom-table_kegg.txt', emit: hmmerDomTableKegg
+    path 'contig_annotation.tsv', emit: hmmerSummary
 
     script:
     """
@@ -29,5 +30,6 @@ process HMMER {
     then
     hmmsearch -E 0.001 -o hmmer_kegg.out --domtbl hmmer_dom-table_kegg.txt ${profileHmmKegg} ${genes}
     fi
+    python ../../bin/hmmer_summary.py -r ${params.outdir}/hmmer
     """
 }
