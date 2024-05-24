@@ -16,7 +16,7 @@ process FEATURECOUNTS {
     output:
     path "*featureCounts.txt", emit: counts
     path "*featureCounts.txt.summary", emit: summary
-    path "abundance_table.tsv", emit abundance_table
+    path "abundance_table.tsv", emit: abundance_table
 
     script:
     """
