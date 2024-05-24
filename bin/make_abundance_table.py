@@ -9,14 +9,14 @@ import pandas as pd
 import argparse
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-r", "--respath", required=True)
+ap.add_argument("-p", "--path", required=True)
 args = vars(ap.parse_args())
 
-df_fc = pd.read_csv(f"{args['respath']}/featureCounts.txt", sep="\t", usecols=[0, 1, 6], skiprows=2,
+df_fc = pd.read_csv(f"{args['path']}/featureCounts.txt", sep="\t", usecols=[0, 1, 6], skiprows=2,
                     names=["Geneid", "Chr", "Abundance"])
 pos_contig = df_fc['Geneid'].str.split('_').str[1]
 pos_contig = "_" + pos_contig
 df_fc.Chr = df_fc.Chr + pos_contig
 df_fc = df_fc.drop("Geneid", axis=1)
 df_fc = df_fc.rename(columns={"Chr":"contigId"})
-df_fc.to_csv(f"{args['respath']}/abundance_table.tsv", sep="\t")
+df_fc.to_csv("abundance_table.tsv", sep="\t")

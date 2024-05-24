@@ -5,6 +5,7 @@ include { DASTOOL                           } from '../../modules/dastool'
 include { DASTOOL_CONTIG2BIN as METABAT_C2B } from '../../modules/dastool_contig2bin'
 include { DASTOOL_CONTIG2BIN as MAXBIN_C2B  } from '../../modules/dastool_contig2bin'
 include { FEATURECOUNTS                     } from '../../modules/featurecounts'
+include { FEATURECOUNTS_SUMMARY             } drom '../../modules/featurecounts_summary'
 include { GTDBTK                            } from '../../modules/gtdbtk'
 include { MAXBIN                            } from '../../modules/maxbin'
 include { MAXBIN_ADJUST_EXT                 } from '../../modules/maxbin_adjust_ext'
@@ -25,6 +26,7 @@ workflow ANNOTATION_WF {
     PRODIGAL(assembly)
 
     FEATURECOUNTS(PRODIGAL.out.genesGff, sorted_bam)
+    FEATURECOUNTS_SUMMARY(FEATURECOUNTS.out.counts)
 
     METABAT(assembly, sorted_bam)
     MAXBIN(assembly, METABAT.out.metabatDepth)
@@ -42,6 +44,7 @@ workflow ANNOTATION_WF {
 
     if(params.profilePfam != '' || params.profileKegg != '') {
         HMMER(genes = PRODIGAL.out.genesFaa, profileHmmPfam = params.profilePfam, profileHmmKegg = params.profileKegg)
+        HMMER_SUMMARY(hmmerDomTablePfam = HMMER.out.hmmerDomTablePfam, hmmerDomTableKegg = HMMER.out.hmmerDomTableKegg)
     }
 
     //CHECKM(DASTOOL.out.dasBins)
