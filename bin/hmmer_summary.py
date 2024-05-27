@@ -31,9 +31,9 @@ if os.path.isfile(args['pfamPath']):
     df_pfam = df_pfam.sort_values(by="full_E_value")
     df_pfam = df_pfam.drop_duplicates(subset=["contigId"], keep="first")
     df_pfam = df_pfam.iloc[:,[0,2,3,4,5,6]]
-    df_pfam.columns = ["contigId", "tlen", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"]
+    df_pfam.columns = ["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"]
 else:
-    df_pfam = pd.DataFrame(columns=["contigId", "tlen", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"])
+    df_pfam = pd.DataFrame(columns=["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"])
 
 
 # Kegg
@@ -57,12 +57,13 @@ if os.path.isfile(args['keggPath']):
     df_kegg = df_kegg.sort_values(by="full_E_value")
     df_kegg = df_kegg.drop_duplicates(subset=["contigId"], keep="first")
     df_kegg = df_kegg.iloc[:,[0,2,3,4,5,6]]
-    df_kegg.columns = ["contigId", "tlen", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"]
+    df_kegg.columns = ["contigId", "genPred_len", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"]
 else:
-    df_kegg = pd.DataFrame(columns=["contigId", "tlen", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"])
+    df_kegg = pd.DataFrame(columns=["contigId", "genPred_len", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"])
 
 # Merge
 df_annot = pd.merge(left=df_pfam, right=df_kegg, left_on="contigId", right_on="contigId", how="outer")
-df_annot = df_annot.rename(columns={"tlen_x":"tlen"})
-df_annot = df_annot.drop("tlen_y", axis=1)
+df_annot.loc[(df_annot['genPred_len_x'].isna()) & (df_annot['genPred_len_y'].notna()), 'genPred_len_x'] = df_annot['genPred_len_y'][(df_annot['genPred_len_x'].isna()) & (df_annot['genPred_len_y'].notna())]
+df_annot = df_annot.rename(columns={"genPred_len_x":"genPred_len"})
+df_annot = df_annot.drop("genPred_len_y", axis=1)
 df_annot.to_csv("contig_annotation.tsv", sep="\t")
