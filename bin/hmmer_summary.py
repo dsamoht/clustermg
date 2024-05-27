@@ -11,6 +11,7 @@ import argparse
 ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--pfamPath", required=False)
 ap.add_argument("-k", "--keggPath", required=False)
+ap.add_argument("-l", "--koList", required=False)
 args = vars(ap.parse_args())
 
 namesList = ["contigId", "accession_target", "tlen",
@@ -23,8 +24,8 @@ namesList = ["contigId", "accession_target", "tlen",
                     "env_coord_from", "env_coord_to", "acc"]
 
 # Pfam
-if os.path.isfile(f"{args['pfamPath']}"):
-    df_pfam = pd.read_csv(f"{args['pfamPath']}", sep=" ", skiprows=3, skipfooter=10, header=None,
+if os.path.isfile(args['pfamPath']):
+    df_pfam = pd.read_csv(args['pfamPath'], sep=" ", skiprows=3, skipfooter=10, header=None,
                     skipinitialspace=True, usecols=list(range(0, 22)),
                     names=namesList, na_values="-", engine="python")
     df_pfam = df_pfam.sort_values(by="full_E_value")
@@ -36,7 +37,7 @@ else:
 
 
 # Kegg
-if os.path.isfile(f"{args['keggPath']}"):
+if os.path.isfile(args['keggPath']):
     def swap_columns(df, col1, col2):
         col_list = list(df.columns)
         x, y = col_list.index(col1), col_list.index(col2)
@@ -44,8 +45,8 @@ if os.path.isfile(f"{args['keggPath']}"):
         df = df[col_list]
         return df
     
-    ko_list = pd.read_csv("ko_list.tsv", sep="\t")
-    df_kegg = pd.read_csv(f"{args['keggPath']}", sep=" ", skiprows=3, skipfooter=10, header=None,
+    ko_list = pd.read_csv(args['koList'], sep="\t")
+    df_kegg = pd.read_csv(args['keggPath'], sep=" ", skiprows=3, skipfooter=10, header=None,
                     skipinitialspace=True, usecols=list(range(0, 22)),
                     na_values="-", engine="python")
     df_kegg = swap_columns(df_kegg, 3, 4)

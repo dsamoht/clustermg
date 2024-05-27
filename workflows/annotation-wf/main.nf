@@ -45,7 +45,7 @@ workflow ANNOTATION_WF {
 
     if(params.profilePfam != '' || params.profileKegg != '') {
         HMMER(genes = PRODIGAL.out.genesFaa, profileHmmPfam = params.profilePfam, profileHmmKegg = params.profileKegg)
-        HMMER_SUMMARY(hmmerDomTablePfam = HMMER.out.hmmerDomTablePfam, hmmerDomTableKegg = HMMER.out.hmmerDomTableKegg)
+        HMMER_SUMMARY(hmmerDomTablePfam = HMMER.out.hmmerDomTablePfam, hmmerDomTableKegg = HMMER.out.hmmerDomTableKegg, koList = params.koList)
     }
 
     //CHECKM(DASTOOL.out.dasBins)

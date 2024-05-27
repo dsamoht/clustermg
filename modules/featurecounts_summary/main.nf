@@ -17,7 +17,7 @@ process FEATURECOUNTS_SUMMARY {
 
     script:
     """
-    python ../../../bin/make_abundance_table.py -p ${counts}
+    make_abundance_table.py -p ${counts}
     """
 }
 

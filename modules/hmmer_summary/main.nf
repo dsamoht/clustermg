@@ -11,6 +11,7 @@ process HMMER_SUMMARY {
     input:
     path hmmerDomTablePfam
     path hmmerDomTableKegg
+    path koList
 
     output:
     path 'contig_annotation.tsv', emit: hmmerSummary
@@ -18,7 +19,6 @@ process HMMER_SUMMARY {
 
     script:
     """
-    pwd
-    python ../../../bin/hmmer_summary.py -p ${hmmerDomTablePfam} -k ${hmmerDomTableKegg}
+    hmmer_summary.py -p ${hmmerDomTablePfam} -k ${hmmerDomTableKegg} -l ${koList}
     """
 }
