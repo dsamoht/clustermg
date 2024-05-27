@@ -14,6 +14,7 @@ include { PRODIGAL                          } from '../../modules/prodigal'
 include { SEQKIT                            } from '../../modules/seqkit'
 include { TIARA                             } from '../../modules/tiara'
 include { HMMER                             } from '../../modules/hmmer'
+include { HMMER_SUMMARY                     } from '../../modules/hmmer_summary'
 
 
 workflow ANNOTATION_WF {
