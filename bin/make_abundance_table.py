@@ -12,7 +12,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--path", required=True)
 args = vars(ap.parse_args())
 
-df_fc = pd.read_csv(args['path']", sep="\t", usecols=[0, 1, 6], skiprows=2,
+df_fc = pd.read_csv(args['path'], sep="\t", usecols=[0, 1, 6], skiprows=2,
                     names=["Geneid", "Chr", "Abundance"])
 pos_contig = df_fc['Geneid'].str.split('_').str[1]
 pos_contig = "_" + pos_contig
