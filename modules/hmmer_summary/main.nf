@@ -18,6 +18,7 @@ process HMMER_SUMMARY {
 
     script:
     """
-    python ../../bin/hmmer_summary.py -p ${hmmerDomTablePfam} -k ${hmmerDomTableKegg}
+    pwd
+    python ../../../bin/hmmer_summary.py -p ${hmmerDomTablePfam} -k ${hmmerDomTableKegg}
     """
 }
