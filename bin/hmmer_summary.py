@@ -12,6 +12,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-p", "--pfamPath", required=False)
 ap.add_argument("-k", "--keggPath", required=False)
 ap.add_argument("-l", "--koList", required=False)
+ap.add_argument("-d", "--diamPath", required=False)
 args = vars(ap.parse_args())
 
 namesList = ["contigId", "accession_target", "tlen",
@@ -22,6 +23,7 @@ namesList = ["contigId", "accession_target", "tlen",
                     "hmm_coord_from", "hmm_coord_to",
                     "ali_coord_from", "ali_coord_to",
                     "env_coord_from", "env_coord_to", "acc"]
+
 
 # Pfam
 if os.path.isfile(args['pfamPath']):
@@ -61,8 +63,21 @@ if os.path.isfile(args['keggPath']):
 else:
     df_kegg = pd.DataFrame(columns=["contigId", "genPred_len", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"])
 
+
+# Diammond
+if args['diamPath'] != None:
+    df_diammond = pd.read_csv(args['diamPath'], sep="\t",
+                            usecols=[0, 1, 2, 3, 10], header=None)
+    df_diammond.columns = ["contigId", "diam_name", "diam_seq_identity", "diam_aln_len", "diam_E_value"]
+    df_diammond = df_diammond.sort_values(by="diam_E_value")
+    df_diammond = df_diammond.drop_duplicates(subset=["contigId"], keep="first")
+else:
+    df_diammond = pd.DataFrame(columns=["contigId", "diam_name", "diam_seq_identity", "diam_aln_len", "diam_E_value"])
+
+
 # Merge
 df_annot = pd.merge(left=df_pfam, right=df_kegg, left_on="contigId", right_on="contigId", how="outer")
+df_annot = pd.merge(left=df_annot, right=df_diammond, left_on="contigId", right_on="contigId", how="outer")
 df_annot.loc[(df_annot['genPred_len_x'].isna()) & (df_annot['genPred_len_y'].notna()), 'genPred_len_x'] = df_annot['genPred_len_y'][(df_annot['genPred_len_x'].isna()) & (df_annot['genPred_len_y'].notna())]
 df_annot = df_annot.rename(columns={"genPred_len_x":"genPred_len"})
 df_annot = df_annot.drop("genPred_len_y", axis=1)
