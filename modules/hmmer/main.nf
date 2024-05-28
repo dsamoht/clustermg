@@ -14,18 +14,8 @@ process HMMER {
     path profileHmmKegg
 
     output:
-    if(params.profilePfam != '') {
-    path 'hmmer_pfam.out', emit: hmmerOutputFilePfam
-    path 'hmmer_dom-table_pfam.txt', emit: hmmerDomTablePfam
-    } else {
-        val '', emit: hmmerDomTablePfam
-    }
-    if(params.profileHmmKegg != '') {
-    path 'hmmer_kegg.out', emit: hmmerOutputFileKegg
-    path 'hmmer_dom-table_kegg.txt', emit: hmmerDomTableKegg
-    } else {
-        val '', emit: hmmerDomTableKegg
-    }
+    path 'hmmer_*.out', emit: hmmerOutputFile
+    path 'hmmer_dom-table_*.txt', emit: hmmerDomTable
 
     script:
     """
