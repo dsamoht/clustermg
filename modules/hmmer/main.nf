@@ -13,10 +13,8 @@ process HMMER {
     tuple val(type), path(profile)
 
     output:
-    path 'hmmer_pfam.out', emit: hmmerOutputFilePfam, optional: true
-    path 'hmmer_dom-table_pfam.txt', emit: hmmerDomTablePfam, optional: true
-    path 'hmmer_kegg.out', emit: hmmerOutputFileKegg, optional: true
-    path 'hmmer_dom-table_kegg.txt', emit: hmmerDomTableKegg, optional: true
+    path "hmmer_${type}.out", emit: hmmerOutputFile
+    path "hmmer_dom-table_${type}.txt", emit: hmmerDomTable
 
     script:
     """
