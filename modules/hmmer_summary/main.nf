@@ -9,16 +9,26 @@ process HMMER_SUMMARY {
     publishDir "${params.outdir}/hmmer", mode: 'copy'
 
     input:
-    path hmmerDomTablePfam
-    path hmmerDomTableKegg
+    path hmmerDomTable
     path koList
 
     output:
     path 'contig_annotation.tsv', emit: hmmerSummary
 
-
     script:
+    hmmerDomTablePfam = hmmerDomTable.grep(~/.*pfam.*/)
+    hmmerDomTableKegg = hmmerDomTable.grep(~/.*kegg.*/)
+    if(hmmerDomTablePfam.isEmpty()) {
+        hmmerDomTablePfam = hmmerDomTablePfam.join('')
+    } else {
+        hmmerDomTablePfam = '-p ' + hmmerDomTablePfam.join('')
+    }
+    if(hmmerDomTableKegg.isEmpty()) {
+        hmmerDomTableKegg = hmmerDomTableKegg.join('')
+    } else {
+        hmmerDomTableKegg = '-k ' + hmmerDomTableKegg.join('')
+    }
     """
-    hmmer_summary.py -p ${hmmerDomTablePfam} -k ${hmmerDomTableKegg} -l ${koList}
+    hmmer_summary.py ${hmmerDomTablePfam} ${hmmerDomTableKegg} -l ${koList}
     """
 }

@@ -13,9 +13,9 @@ process HMMER {
     tuple val(type), path(profile)
 
     output:
-    path "hmmer_${type}.out", emit: hmmerOutputFile
-    path "hmmer_dom-table_${type}.txt", emit: hmmerDomTable
-
+    path "hmmer_${type}.out"
+    path ("hmmer_dom-table_${type}.txt", arity: '1..*')
+    
     script:
     """
     hmmsearch -E 0.001 -o hmmer_${type}.out --domtbl hmmer_dom-table_${type}.txt ${profile} ${genes}

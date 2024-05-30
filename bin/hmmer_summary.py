@@ -26,40 +26,50 @@ namesList = ["contigId", "accession_target", "tlen",
 
 
 # Pfam
-if os.path.isfile(args['pfamPath']):
-    df_pfam = pd.read_csv(args['pfamPath'], sep=" ", skiprows=3, skipfooter=10, header=None,
-                    skipinitialspace=True, usecols=list(range(0, 22)),
-                    names=namesList, na_values="-", engine="python")
-    df_pfam = df_pfam.sort_values(by="full_E_value")
-    df_pfam = df_pfam.drop_duplicates(subset=["contigId"], keep="first")
-    df_pfam = df_pfam.iloc[:,[0,2,3,4,5,6]]
-    df_pfam.columns = ["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"]
+if args['pfamPath'] != None:
+    with open(args['pfamPath'], 'r') as fp:
+        lines = len(fp.readlines())
+    if lines <= 13:
+        df_pfam = pd.DataFrame(columns=["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"])
+    else:
+        df_pfam = pd.read_csv(args['pfamPath'], sep=" ", skiprows=3, skipfooter=10, header=None,
+                        skipinitialspace=True, usecols=list(range(0, 22)),
+                        names=namesList, na_values="-", engine="python")
+        df_pfam = df_pfam.sort_values(by="full_E_value")
+        df_pfam = df_pfam.drop_duplicates(subset=["contigId"], keep="first")
+        df_pfam = df_pfam.iloc[:,[0,2,3,4,5,6]]
+        df_pfam.columns = ["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"]
 else:
     df_pfam = pd.DataFrame(columns=["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"])
 
 
 # Kegg
-if os.path.isfile(args['keggPath']):
+if args['keggPath'] != None:
     def swap_columns(df, col1, col2):
         col_list = list(df.columns)
         x, y = col_list.index(col1), col_list.index(col2)
         col_list[y], col_list[x] = col_list[x], col_list[y]
         df = df[col_list]
         return df
-    
+
     ko_list = pd.read_csv(args['koList'], sep="\t")
-    df_kegg = pd.read_csv(args['keggPath'], sep=" ", skiprows=3, skipfooter=10, header=None,
-                    skipinitialspace=True, usecols=list(range(0, 22)),
-                    na_values="-", engine="python")
-    df_kegg = swap_columns(df_kegg, 3, 4)
-    df_kegg.columns = namesList
-    df_kegg = pd.merge(left=df_kegg, right=ko_list.iloc[:,[0, 11]], left_on="accession_query", right_on="knum")
-    df_kegg.query_name = df_kegg.definition
-    df_kegg = df_kegg.drop(["knum", "definition"], axis=1)
-    df_kegg = df_kegg.sort_values(by="full_E_value")
-    df_kegg = df_kegg.drop_duplicates(subset=["contigId"], keep="first")
-    df_kegg = df_kegg.iloc[:,[0,2,3,4,5,6]]
-    df_kegg.columns = ["contigId", "genPred_len", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"]
+    with open(args['keggPath'], 'r') as fp:
+        lines = len(fp.readlines())
+    if lines <= 13:
+        df_kegg = pd.DataFrame(columns=["contigId", "genPred_len", "pfam_name", "pfam_id", "pfam_qlen", "pfam_E_value"])
+    else:
+        df_kegg = pd.read_csv(args['keggPath'], sep=" ", skiprows=3, skipfooter=10, header=None,
+                        skipinitialspace=True, usecols=list(range(0, 22)),
+                        na_values="-", engine="python")
+        df_kegg = swap_columns(df_kegg, 3, 4)
+        df_kegg.columns = namesList
+        df_kegg = pd.merge(left=df_kegg, right=ko_list.iloc[:,[0, 11]], left_on="accession_query", right_on="knum")
+        df_kegg.query_name = df_kegg.definition
+        df_kegg = df_kegg.drop(["knum", "definition"], axis=1)
+        df_kegg = df_kegg.sort_values(by="full_E_value")
+        df_kegg = df_kegg.drop_duplicates(subset=["contigId"], keep="first")
+        df_kegg = df_kegg.iloc[:,[0,2,3,4,5,6]]
+        df_kegg.columns = ["contigId", "genPred_len", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"]
 else:
     df_kegg = pd.DataFrame(columns=["contigId", "genPred_len", "kegg_name", "kegg_id", "kegg_qlen", "kegg_E_value"])
 

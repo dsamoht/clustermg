@@ -45,10 +45,8 @@ workflow ANNOTATION_WF {
 
     if(params.profilePfam != '' || params.profileKegg != '') {
         profiles = Channel.of(["pfam", params.profilePfam], ["kegg", params.profileKegg])
-        HMMER(genes = PRODIGAL.out.genesFaa, profiles.filter{ it.count('') == 0 })
-        HMMER.out.hmmerDomTable.view()
-        HMMER_SUMMARY(hmmerDomTablePfam = HMMER.out.hmmerDomTable, hmmerDomTableKegg = HMMER.out.hmmerDomTable, koList = params.koList)
-
+        HMMER(genes = params.genesFaa, profiles.filter{ it.count('') == 0 })
+        HMMER_SUMMARY(hmmerDomTable = HMMER.out[1].collect(), koList = params.koList)
     }
 
     //CHECKM(DASTOOL.out.dasBins)
