@@ -45,7 +45,7 @@ workflow ANNOTATION_WF {
 
     if(params.profilePfam != '' || params.profileKegg != '') {
         profiles = Channel.of(["pfam", params.profilePfam], ["kegg", params.profileKegg])
-        HMMER(genes = params.genesFaa, profiles.filter{ it.count('') == 0 })
+        HMMER(genes = PRODIGAL.out.genesFaa, profiles.filter{ it.count('') == 0 })
         HMMER_SUMMARY(hmmerDomTable = HMMER.out[1].collect(), koList = params.koList)
     }
 
