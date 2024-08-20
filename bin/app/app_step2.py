@@ -421,7 +421,7 @@ def downl_update_filter(taxon_2, sample, bin, min_e_value, slider_is_dis, filter
         selection_lf = selection_lf.filter(pl.col("binId").str.contains(fr"({sample})\|"))
     if bin != 'all' and bin != None:
         selection_lf = selection_lf.filter(pl.col("binId").str.contains(bin, literal=True))
-    columnDefs = [{"field": "seq_id", "checkboxSelection": True, "headerCheckboxSelection": True}]
+    columnDefs = [{"field": "seq_id", "checkboxSelection": True, "headerCheckboxSelection": True, "headerCheckboxSelectionFilteredOnly": True}]
     for col in selection_lf.collect_schema().names():
         if ("_name" in col or "_id" in col or "_E_value" in col) and "seq_id" not in col:
             columnDefs += [{"field": col, "checkboxSelection": False}]
