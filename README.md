@@ -4,47 +4,60 @@
 
 # Introduction
 This is a two-steps pipeline:
-- __step 1__: assembly and annotation of individual metagenome
-- __step 2__: clustering of metagenomes based on gene families
+- __step 1__ : sample-wise assembly and annotation of individual metagenome
+- __step 2__ : clustering of annotated metagenomes from __step 1__ based on gene families
 
 
-![alt text](/img/mag-ont_schema.png)
-
-The pipeline supports paired-end reads (`megahit` assembly), long reads (`flye` assembly) or both (`spades` or `flye + polypolish` assembly)
+![alt text](img/clustermg_schema.png)
 
 ## Dependencies
 - __Software :__  
   - [Nextflow](https://www.nextflow.io/)  
   - [Docker](https://www.docker.com/) and/or [Apptainer/Singularity](https://apptainer.org/)  
 
-- __Database :__  
-  - [COG database](https://ftp.ncbi.nih.gov/pub/COG/COG2020/data/cog-20.fa.gz)
+- __Database :__
+  - Reference proteome(s) in fasta format (i.e. [COG](https://ftp.ncbi.nih.gov/pub/COG/COG2020/data/cog-20.fa.gz), [UniRef100](https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref100/uniref100.fasta.gz), etc.)
   - [GTDB-Tk database](https://ecogenomics.github.io/GTDBTk/installing/index.html#gtdb-tk-reference-data)
-  -  [KEGG profiles](https://www.genome.jp/ftp/db/kofam/profiles.tar.gz) and [KO list](https://www.genome.jp/ftp/db/kofam/ko_list.gz)
+  - HMM profiles databases ([KEGG profiles](https://www.genome.jp/ftp/db/kofam/profiles.tar.gz), [Pfam database](https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz), etc.)
   - A pre-built [Kraken2 database](https://benlangmead.github.io/aws-indexes/k2)
-  - [Pfam database](https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz)
 
-- __Edit__ these lines in *nextflow.config* file:  
+- You  can __edit__ these lines in *nextflow.config* file:  
   ```
-  cogDB = '/path/to/extracted/cog/database'
+  fastaDBs = '/path/to/extracted/proteome/database'
   gtdbtkDB = '/path/to/extracted/gtdbtk/database'
-  keggProfiles = '/path/to/extracted/kegg/profiles'  
+  hmmProfiles = '/path/to/extracted/hmm/profiles'  
   koList = '/path/to/extracted/ko/list'   
   krakenDB = '/path/to/extracted/kraken2/database'
-  pfamDB = '/path/to/extracted/pfam/database'
+  database_path = '/path/where/to/store/dmnd/databases'
   ```
 ## How to run the pipeline
 __Test your setup and download the containers for off-line use (run once):__
 ```
-nextflow run metagenomics-wf.nf \\
+nextflow run clustermg.nf \\
   -profile singularity,local,test
+
+nextflow run clustermg.nf \\
+  -profile singularity,local,test
+  --step2 \\
+  --step2_sheet test/step2_input_sheet.tsv
 ```
-__Run on your data__:
+__Run step 1 on your data__:
 ```
-nextflow run metagenomics-wf.nf \\
-  -profile singularity,hpc \\
-  --reads sample.fastq.gz \\
-  --outdir results/
+nextflow run clustermg.nf \\
+  -profile singularity,local \\
+  --longReads lr_sample.fastq.gz \\
+  --shortReads sr_sample.fastq.gz \\
+  --sampleName sample_1 \\
+  --outdir results_1/
+```
+__Run step 2 on your data__:
+```
+cat results_*/step2_input_sheet.tsv > input_sheet.tsv
+nextflow run clustermg.nf \\
+  -profile singularity,local \\
+  --step2 \\
+  --step2_sheet input_sheet.tsv \\
+  --outdir results_step2/
 ```
 
 ## Acknowledgement
