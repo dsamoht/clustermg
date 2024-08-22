@@ -11,6 +11,7 @@ from dash_bio import Clustergram
 import dash_bootstrap_components as dbc
 import dash_ag_grid as dag
 import polars as pl
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import io
@@ -68,14 +69,6 @@ taxon_1_list = [{"label":"Domain", "value":"d__"},
 fig = go.Figure(layout=dict(template='plotly'))
 
 
-df_abundance = clusters_abundance.fill_null(0).with_columns([sum_expr.alias("count")]).sort(by="count", descending=True).select(pl.col(samples), pl.col("cluster")).join(clusters_annotation.select(["cluster", "cog_func_name"]), on="cluster", how="left").drop("cluster").group_by(by=pl.col("cog_func_name")).sum().drop("cog_func_name").rename({"by":"cog_func_name"}).collect().to_pandas().set_index("cog_func_name")
-columns = list(df_abundance.columns.values)
-rows = list(df_abundance.index)
-fig_abund = Clustergram(data=df_abundance.loc[rows].values, row_labels=rows, column_labels=columns, height=800, width=700, line_width=0.7, center_values=False)
-
-# test_df = clusters_info.select(["seq_id", "cluster", "contigId", pl.col("seq_name_fasta").str.extract(r";gc_cont=(.*$)", group_index=1).cast(pl.Float64).alias("gc_cont")]).join(clusters_abundance.fill_null(0).with_columns([sum_expr.alias("count")]), on="cluster", coalesce=True).join(contigs2bins, on="contigId", coalesce=True).join(bin_annotation.with_columns("binId", pl.col('classification').str.extract(r"o__\w+|^Unclassified \w+$", group_index=0).str.strip_prefix("o__").fill_null("None")), on="binId", coalesce=True).select(["cluster", "gc_cont", "count", "classification"]).filter(pl.col("count") != 0).collect()
-# fig_abund = px.scatter(test_df, x="gc_cont", y="count", color="classification", opacity=0.5)
-
 
 app = Dash(__name__, use_pages=True, external_stylesheets=[dbc.themes.CERULEAN], pages_folder="")
 
@@ -106,15 +99,19 @@ dash.register_page("Graphs", path='/', layout=html.Div([
         "Sample:",
         dcc.Dropdown(samples + ['all'], 'all', id='sample_annot'),
         dcc.RadioItems(['Abundance', 'Number of genes'], 'Abundance', id='count_type', inline=False),
-        dcc.Graph(id='graph_annot'),
-        dcc.Markdown(id='slider_name'),
-        dcc.RangeSlider(step = 1, id='count_slider',
-                         tooltip={"placement": "bottom", "always_visible": True}),
-        dcc.Store(id="lf_store", storage_type='memory'),
+        dcc.Loading(
+            html.Div([
+                dcc.Graph(id='graph_annot'),
+                dcc.Markdown(id='slider_name'),
+                dcc.RangeSlider(step = 1, id='count_slider',
+                            tooltip={"placement": "bottom", "always_visible": True}),
+                dcc.Store(id="lf_store", storage_type='memory'),
+            ]),
+        ),
     ]),
     html.Hr(),
     html.Div([
-        dcc.Graph(figure=fig_abund, id='graph_test')
+        dcc.Graph(id='clustergram_abund')
     ]),
 ], style={'padding': 10}))
 
@@ -331,7 +328,7 @@ def graph_update_annot_type(select_annot, count_type, sample_annot):
     Input(component_id='count_type', component_property='value'),
     Input(component_id='sample_annot', component_property='value')
 )
-def garph_update_annot_hist(count_range, selected_type, count_lf, count_type, sample_annot):
+def graph_update_annot_hist(count_range, selected_type, count_lf, count_type, sample_annot):
     annot_df = pl.LazyFrame.deserialize(io.StringIO(count_lf), format='json').collect()
     annot_df = annot_df.filter((pl.col("count") >= count_range[0]) & (pl.col("count") <= count_range[1]))
     if sample_annot != 'all' and sample_annot != None:
@@ -341,16 +338,33 @@ def garph_update_annot_hist(count_range, selected_type, count_lf, count_type, sa
     fig.update_layout(yaxis_title=count_type, legend_title_text="Sample")
     return fig
 
+@callback(
+        Output(component_id='clustergram_abund', component_property='figure'),
+        Input(component_id='select_annot', component_property='value')
+)
+def graph_update_clustergram(annot_type):
+    if clusters_annotation.select(pl.col(f"{annot_type}_name").unique().len()).collect()[0, 0] > 100:
+        fig_abund = {}
+    else:
+        df_abundance = clusters_abundance.fill_null(0).with_columns([sum_expr.alias("count")]).sort(by="count", descending=True).select(pl.col(samples), pl.col("cluster")).join(clusters_annotation.select(["cluster", f"{annot_type}_name"]), on="cluster", how="left").drop("cluster").group_by(by=pl.col(f"{annot_type}_name")).sum().drop(f"{annot_type}_name").rename({"by":f"{annot_type}_name"}).collect().to_pandas().set_index(f"{annot_type}_name")
+        df_abundance = df_abundance.transpose()
+        columns = list(df_abundance.columns.values)
+        rows = list(df_abundance.index)
+        fig_abund = Clustergram(data=df_abundance.loc[rows].values, row_labels=rows, column_labels=columns, height=800, width=1200, line_width=0.7, center_values=False, display_ratio=[0.2, 0.4])
+    return fig_abund
+
+
 
 # Download page callbacks
 @callback(
         Output("taxon_2", "options"),
+        Output("taxon_2", "value"),
         Output("taxon_2_lf", "data"),
         Input("taxon_1", "value")
 )
 def downl_update_taxon_2(taxon_1):
     bin_annot_class = bin_annotation.with_columns(pl.col('classification').str.extract(fr"{taxon_1}\w+|^Unclassified \w+$", group_index=0).str.strip_prefix(f"{taxon_1}").fill_null("None"))
-    return bin_annot_class.select(pl.col("classification").unique()).collect().to_series().to_list(), bin_annot_class.serialize(format='json')
+    return bin_annot_class.select(pl.col("classification").unique()).collect().to_series().to_list() + ['all'], 'all', bin_annot_class.serialize(format='json')
 
 @callback(
         Output("sample", "options"),
@@ -415,7 +429,7 @@ def downl_update_filter(taxon_2, sample, bin, min_e_value, slider_is_dis, filter
         min_e_value = round(1/(min_e_value * 10**min_e_value), round(min_e_value)+2)
         sele_e_value = selection_lf.select(pl.col(pl.Float64) < min_e_value).with_columns(any=pl.any_horizontal("*")).select(pl.col("any")).collect().to_series()
         selection_lf = selection_lf.filter(sele_e_value)
-    if taxon_2 != None:
+    if taxon_2 != 'all'and taxon_2 != None:
         selection_lf = selection_lf.filter(pl.col("classification").str.contains(taxon_2, literal=True))
     if sample != 'all' and sample != None:
         selection_lf = selection_lf.filter(pl.col("binId").str.contains(fr"({sample})\|"))
