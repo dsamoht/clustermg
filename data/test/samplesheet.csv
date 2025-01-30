@@ -1,0 +1,4 @@
+name,type,fasta,short_reads_1,short_reads_2,long_reads,bam
+test_minigut,sample,./data/test/test_minigut.fa,./data/test/test_minigut_R1.fastq.gz,./data/test/test_minigut_R2.fastq.gz,,
+test_minigut_sample2,sample,./data/test/test_minigut_sample2.fa,./data/test/test_minigut_sample2_R1.fastq.gz,./data/test/test_minigut_sample2_R2.fastq.gz,,./data/test/samtools/test_minigut_sample2.sorted.bam
+CARD,db,./data/test/CARD.fasta,,,,
