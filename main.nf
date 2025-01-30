@@ -39,28 +39,32 @@ workflow {
 
     (ch_sample, ch_db) = DISPATCH() | CHECK_FORMAT
 
-    ch_prodigal_out = PRODIGAL(ch_sample)
+    ch_prodigal_input = ch_sample
+        .map{ meta, files -> return [ meta, files[0] ] }
+
+    ch_prodigal_output = PRODIGAL(ch_prodigal_input)
     
     ch_bam_for_featurecounts = BOWTIE(ch_sample)
         .map { meta, files -> 
-          return [ meta, files[4] ] }
+          return [ meta, files[3] ] }
    
-    ch_featurecounts_in = ch_prodigal_out.genes_gff
+    ch_featurecounts_in = ch_prodigal_output.genes_gff
         .concat(ch_bam_for_featurecounts)
         .groupTuple()
        
     ch_featurecounts_out = FEATURECOUNTS(ch_featurecounts_in, "short_reads")
 
     ch_to_construct_gene_db = ch_featurecounts_out.counts
-        .concat(ch_prodigal_out.genes_faa)
+        .concat(ch_prodigal_output.genes_faa)
         .groupTuple()
 
     ch_formatted_sample_db = PREPARE_SAMPLE_DB(ch_to_construct_gene_db)
-        .map{ it[1] }
+        .map{ meta, files -> return files }
         .collect()
 
-   ch_formatted_db_db = PREPARE_DB_DB(ch_db)
-        .map{ it[1] }
+    ch_formatted_db_db = PREPARE_DB_DB(ch_db)
+        .map{ meta, files -> return files }
+        .collect()
 
     ch_formatted_dbs = ch_formatted_sample_db
         .concat(ch_formatted_db_db)
@@ -75,14 +79,11 @@ workflow {
                 def meta = [:]
                 meta.name = 'sample'
                 return [meta, db]
-              }
+             }
 
     ch_sample_mmseqs = MMSEQS_EASYCLUSTER(ch_sample_db)
         .map { meta, file -> return file }
 
-
-
     MAKE_MATRIX(ch_sample_mmseqs, ch_combined_database)
-    
 
 }

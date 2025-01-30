@@ -36,7 +36,7 @@ workflow DISPATCH {
                 def meta = [:]
                 meta.name = name
                 meta.type = type
-                return [ meta, [ fasta ] ]
+                return  [ meta, [ fasta ] ]
               }
 
     emit:

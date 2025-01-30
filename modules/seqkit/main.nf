@@ -10,14 +10,13 @@ process SEQKIT {
     publishDir "${params.outdir}/seqkit/", mode: 'copy', pattern: '*_fasta_stats.tsv'
 
     input:
-    tuple val(meta), val(data)
+    tuple val(meta), path(fasta)
 
     output:
     tuple val(meta), path('*_fasta_stats.tsv')
     tuple val(meta), path('*_seq_type.txt'), emit: seq_type
 
     script:
-    def fasta = data[0]
     def name = meta.name
     """
     seqkit stats -aTb ${fasta} > ${name}_fasta_stats.tsv

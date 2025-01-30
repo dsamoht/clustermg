@@ -10,7 +10,7 @@ process FEATURECOUNTS {
     publishDir "${params.outdir}/featurecounts", mode: 'copy'
 
     input:
-    tuple val(meta), val(data)
+    tuple val(meta), path(data)
     val read_type
 
     output:

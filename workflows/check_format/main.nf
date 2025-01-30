@@ -11,6 +11,8 @@ workflow CHECK_FORMAT {
 
     main:
     ch_input = sample_input.mix(db_input)
+        .map{meta, files -> return [meta, files[0]]}
+    
     SEQKIT(ch_input).seq_type
                 .map { meta, seq_type ->
                 if (seq_type.text.trim() == "Protein" && meta.type == "sample") {

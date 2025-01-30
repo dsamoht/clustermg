@@ -10,10 +10,10 @@ process BOWTIE_MAP {
     publishDir "${params.outdir}/bowtie2/", mode: 'copy'
 
     input:
-    tuple val(meta), val(data), path(index)
+    tuple val(meta), path(data), path(index)
 
     output:
-    tuple val(meta), val(data), path('*.sam'), emit: sam
+    tuple val(meta), path(data), path('*.sam'), emit: sam
 
     script:
     def name = meta.name

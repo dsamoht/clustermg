@@ -8,7 +8,7 @@ process PREPARE_SAMPLE_DB {
     }
 
     input:
-    tuple val(meta), val(data)
+    tuple val(meta), path(data)
 
     output:
     tuple val(meta), path('*_gene_info.tsv'), emit: gene_info

@@ -10,10 +10,10 @@ process BOWTIE_BUILD {
     publishDir "${params.outdir}/bowtie2/", mode: 'copy'
 
     input:
-    tuple val(meta), val(data)
+    tuple val(meta), path(data)
 
     output:
-    tuple val(meta), val(data), path('*.bt2'), emit: fasta_index
+    tuple val(meta), path(data), path('*.bt2'), emit: fasta_index
 
     script:
     def fasta = data[0]
