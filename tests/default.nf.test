@@ -1,0 +1,115 @@
+nextflow_pipeline {
+
+    name "Test pipeline"
+    script "../main.nf"
+    tag "pipeline"
+
+    // No snapshot: dRep scores and MMseqs2 cluster choices are not guaranteed to be the same
+    // across versions and thread counts. The tests check what the pipeline promises instead:
+    // which MAGs are final, one catalog record per representative, and the forcing rule.
+
+    test("-profile test") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def rows = { file_path ->
+                def lines = path(file_path).readLines()
+                def header = lines[0].split('\t') as List
+                lines.drop(1).collect { line -> [ header, line.split('\t', -1) as List ].transpose().collectEntries() }
+            }
+            def records = { file_path -> path(file_path).readLines().count { line -> line.startsWith('>') } }
+
+            assert workflow.success
+
+            // The mutated copy of bin 001 is represented by it, the incomplete bin 002 is left out
+            def mags = rows("$outputDir/mags/mags_summary.tsv").collectEntries { row -> [ row.mag_id, row ] }
+            assert mags.collectEntries { id, row -> [ id, row.status ] } == [
+                'minigut1_bin_001'  : 'final',
+                'minigut1_bin_002'  : 'low_quality',
+                'minigut1_mut_bin.1': 'redundant',
+            ]
+            assert mags['minigut1_mut_bin.1'].representative == 'minigut1_bin_001'
+            assert new File("$outputDir/mags/final").list().toList() == [ 'minigut1_bin_001.fa' ]
+            assert path("$outputDir/mags/drep/Cdb.csv").exists()
+
+            // One catalog record per representative, in every format
+            def clusters = rows("$outputDir/genes/gene_clusters.tsv")
+            def reps = clusters.collect { row -> row.representative }.unique()
+            assert records("$outputDir/genes/gene_catalog.faa") == reps.size()
+            assert records("$outputDir/genes/gene_catalog.fna") == reps.size()
+            assert path("$outputDir/genes/gene_catalog.gff").readLines().count { line -> !line.startsWith('#') } == reps.size()
+
+            // The forcing rule: a final-MAG gene is only ever represented by a final-MAG gene
+            def status_of = clusters.collectEntries { row -> [ row.member, row.member_mag_status ] }
+            def final_genes = clusters.findAll { row -> row.member_mag_status == 'final' }
+            assert final_genes
+            assert final_genes.every { row -> status_of[row.representative] == 'final' }
+
+            // The mutated copy of bin 001 is mostly absorbed by the genes of bin 001
+            def copy = clusters.findAll { row -> row.member_mag == 'minigut1_mut_bin.1' }
+            assert copy.count { row -> row.step == 'mag_assigned' } > copy.size() / 2
+        }
+    }
+
+    test("-profile test, assemblies without bins") {
+
+        when {
+            params {
+                input  = "${projectDir}/tests/data/samplesheet_nobins.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def rows = { file_path ->
+                def lines = path(file_path).readLines()
+                def header = lines[0].split('\t') as List
+                lines.drop(1).collect { line -> [ header, line.split('\t', -1) as List ].transpose().collectEntries() }
+            }
+            def records = { file_path -> path(file_path).readLines().count { line -> line.startsWith('>') } }
+
+            assert workflow.success
+
+            // No MAG: the catalog is a plain MMseqs2 clustering of every gene
+            assert rows("$outputDir/mags/mags_summary.tsv").isEmpty()
+            assert !new File("$outputDir/mags/final").exists()
+            def clusters = rows("$outputDir/genes/gene_clusters.tsv")
+            assert clusters
+            assert clusters.every { row -> row.member_mag_status == 'unbinned' && row.step == 'de_novo' }
+            assert records("$outputDir/genes/gene_catalog.faa") == clusters.collect { row -> row.representative }.unique().size()
+        }
+    }
+
+    test("-profile test, a single MAG past the filter") {
+
+        when {
+            params {
+                input  = "${projectDir}/tests/data/samplesheet_single.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def rows = { file_path ->
+                def lines = path(file_path).readLines()
+                def header = lines[0].split('\t') as List
+                lines.drop(1).collect { line -> [ header, line.split('\t', -1) as List ].transpose().collectEntries() }
+            }
+
+            assert workflow.success
+
+            // dRep has nothing to compare one MAG with, so it does not run
+            assert !new File("$outputDir/mags/drep").exists()
+            assert rows("$outputDir/mags/mags_summary.tsv").collectEntries { row -> [ row.mag_id, row.status ] } == [
+                'minigut1_bin_001': 'final',
+                'minigut1_bin_002': 'low_quality',
+            ]
+            assert new File("$outputDir/mags/final").list().toList() == [ 'minigut1_bin_001.fa' ]
+        }
+    }
+}

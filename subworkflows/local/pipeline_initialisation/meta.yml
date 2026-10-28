@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "pipeline_initialisation"
+description: Validate the pipeline parameters and read the sample sheet
+keywords:
+  - initialisation
+  - validation
+  - samplesheet
+components: []
+input:
+  - validate_params:
+      type: boolean
+      description: |
+        Validate the parameters against nextflow_schema.json before starting.
+  - input:
+      type: file
+      description: |
+        Path to the comma-separated sample sheet.
+      pattern: "*.csv"
+output:
+  - samplesheet:
+      type: list
+      description: |
+        Channel of validated sample sheet rows, `[ meta, assembly, bins, checkm2 ]`, with
+        `meta.id` the assembly name and `[]` for the bins and CheckM2 report of an assembly
+        given without bins. Relative paths are resolved against the launch directory, then
+        against the directory of the sample sheet.
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

@@ -1,0 +1,244 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/dsamoht/clustermg/main/nextflow_schema.json",
+    "title": "dsamoht/clustermg pipeline parameters",
+    "description": "Dereplicated MAGs and a MAG-anchored non-redundant gene catalog from metagenome assemblies",
+    "type": "object",
+    "$defs": {
+        "input_output_options": {
+            "title": "Input/output options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define where the pipeline should find input data and save output data.",
+            "required": [
+                "input",
+                "outdir"
+            ],
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_input.json",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to the comma-separated sample sheet: one row per assembly, with its bins and their CheckM2 report.",
+                    "help_text": "Columns `name,assembly,bins,checkm2`. `bins` is a directory of MAG FASTA files and `checkm2` the CheckM2 `quality_report.tsv` that covers them; leave both empty for an assembly that only contributes genes. A relative path is looked up in the launch directory, then next to the sample sheet. See docs/usage.md.",
+                    "fa_icon": "fas fa-file-csv"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "mag_dereplication_options": {
+            "title": "MAG dereplication options",
+            "type": "object",
+            "fa_icon": "fas fa-clone",
+            "description": "Which MAGs are good enough to keep, and when two of them are the same genome.",
+            "properties": {
+                "mag_ani": {
+                    "type": "number",
+                    "default": 0.95,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Average nucleotide identity above which dRep puts two MAGs in the same cluster (dRep `-sa`).",
+                    "help_text": "0.95 is the usual species boundary: one MAG per species is kept. 0.99 keeps co-occurring strains of a species apart.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "mag_min_completeness": {
+                    "type": "number",
+                    "default": 50,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Minimum CheckM2 completeness (%) for a MAG to be dereplicated and kept.",
+                    "help_text": "A MAG below it is reported as `low_quality` and left out of the final MAGs; its genes still enter the gene catalog, as genes of no MAG.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "mag_max_contamination": {
+                    "type": "number",
+                    "default": 10,
+                    "minimum": 0,
+                    "description": "Maximum CheckM2 contamination (%) for a MAG to be dereplicated and kept.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "mag_min_length": {
+                    "type": "integer",
+                    "default": 50000,
+                    "minimum": 0,
+                    "description": "Minimum genome size (bp) for a MAG to be dereplicated and kept (dRep `-l`).",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                }
+            }
+        },
+        "gene_catalog_options": {
+            "title": "Gene catalog options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "MMseqs2 thresholds of the gene dereplication. The same thresholds apply to the three clustering steps.",
+            "properties": {
+                "gene_min_seq_id": {
+                    "type": "number",
+                    "default": 0.95,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Minimum amino acid identity between a gene and its representative (MMseqs2 `--min-seq-id`).",
+                    "fa_icon": "fas fa-percent"
+                },
+                "gene_coverage": {
+                    "type": "number",
+                    "default": 0.9,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Minimum fraction of the alignment coverage required by `--gene_cov_mode` (MMseqs2 `-c`).",
+                    "fa_icon": "fas fa-percent"
+                },
+                "gene_cov_mode": {
+                    "type": "integer",
+                    "default": 1,
+                    "enum": [
+                        0,
+                        1,
+                        2
+                    ],
+                    "description": "Which sequence the coverage applies to: 0 both, 1 the member, 2 the representative (MMseqs2 `--cov-mode` of the clustering).",
+                    "help_text": "With 1, a gene must be covered by its representative for at least `--gene_coverage` of its length, so fragments join the cluster of a full-length gene. The search of step 2 mirrors the mode, so that it keeps the same meaning there.",
+                    "fa_icon": "fas fa-arrows-left-right"
+                }
+            }
+        },
+        "institutional_config_options": {
+            "title": "Institutional config options",
+            "type": "object",
+            "fa_icon": "fas fa-university",
+            "description": "Parameters used to describe centralised config profiles. These should not be edited.",
+            "help_text": "The centralised nf-core configuration profiles use a handful of pipeline parameters to describe themselves. This information is then printed to the Nextflow log when you run a pipeline. You should not need to change these values when you run a pipeline.",
+            "properties": {
+                "custom_config_version": {
+                    "type": "string",
+                    "description": "Git commit id for Institutional configs.",
+                    "default": "master",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "custom_config_base": {
+                    "type": "string",
+                    "description": "Base directory for Institutional configs.",
+                    "default": "https://raw.githubusercontent.com/nf-core/configs/master",
+                    "hidden": true,
+                    "help_text": "If you're running offline, Nextflow will not be able to fetch the institutional config files from the internet. If you don't need them, then this is not a problem. If you do need them, you should download the files from the repo and tell Nextflow where to find them with this parameter.",
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_name": {
+                    "type": "string",
+                    "description": "Institutional config name.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_description": {
+                    "type": "string",
+                    "description": "Institutional config description.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_contact": {
+                    "type": "string",
+                    "description": "Institutional config contact information.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                },
+                "config_profile_url": {
+                    "type": "string",
+                    "description": "Institutional config URL link.",
+                    "hidden": true,
+                    "fa_icon": "fas fa-users-cog"
+                }
+            }
+        },
+        "generic_options": {
+            "title": "Generic options",
+            "type": "object",
+            "fa_icon": "fas fa-file-import",
+            "description": "Less common options for the pipeline, typically set in a config file.",
+            "help_text": "These options are common to all nf-core pipelines and allow you to customise some of the core preferences for how the pipeline runs.\n\nTypically these options would be set in a Nextflow config file loaded for all pipeline runs, such as `~/.nextflow/config`.",
+            "properties": {
+                "version": {
+                    "type": "boolean",
+                    "description": "Display version and exit.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "publish_dir_mode": {
+                    "type": "string",
+                    "default": "copy",
+                    "description": "Method used to save pipeline results to output directory.",
+                    "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
+                    "fa_icon": "fas fa-copy",
+                    "enum": [
+                        "symlink",
+                        "rellink",
+                        "link",
+                        "copy",
+                        "copyNoFollow",
+                        "move"
+                    ],
+                    "hidden": true
+                },
+                "monochrome_logs": {
+                    "type": "boolean",
+                    "description": "Do not use coloured log outputs.",
+                    "fa_icon": "fas fa-palette",
+                    "hidden": true
+                },
+                "validate_params": {
+                    "type": "boolean",
+                    "description": "Boolean whether to validate parameters against the schema at runtime",
+                    "default": true,
+                    "fa_icon": "fas fa-check-square",
+                    "hidden": true
+                },
+                "trace_report_suffix": {
+                    "type": "string",
+                    "fa_icon": "far calendar",
+                    "description": "Suffix to add to the trace report filename. Default is the date and time in the format yyyy-MM-dd_HH-mm-ss.",
+                    "hidden": true
+                },
+                "help": {
+                    "type": [
+                        "boolean",
+                        "string"
+                    ],
+                    "description": "Display the help message."
+                },
+                "help_full": {
+                    "type": "boolean",
+                    "description": "Display the full detailed help message."
+                },
+                "show_hidden": {
+                    "type": "boolean",
+                    "description": "Display hidden parameters in the help message (only works when --help or --help_full are provided)."
+                }
+            }
+        }
+    },
+    "allOf": [
+        {
+            "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/mag_dereplication_options"
+        },
+        {
+            "$ref": "#/$defs/gene_catalog_options"
+        },
+        {
+            "$ref": "#/$defs/institutional_config_options"
+        },
+        {
+            "$ref": "#/$defs/generic_options"
+        }
+    ]
+}

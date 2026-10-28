@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "mmseqs_search"
+description: Search proteins against a set of cluster representatives with MMseqs2 easy-search
+keywords:
+  - search
+  - proteins
+  - mmseqs2
+tools:
+  - "mmseqs2":
+      description: Ultra fast and sensitive sequence search and clustering suite
+      homepage: https://github.com/soedinglab/MMseqs2
+      documentation: https://mmseqs.com/latest/userguide.pdf
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:mmseqs
+input:
+  - - meta:
+        type: map
+        description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+    - queries:
+        type: file
+        description: Query proteins, one or several files
+  - targets:
+      type: file
+      description: Target proteins
+output:
+  hits:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "*.m8":
+          type: file
+          description: Hits as query, target, fident, alnlen, qcov, tcov, evalue and bits columns
+          pattern: "*.m8"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

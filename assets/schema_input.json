@@ -1,0 +1,42 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/dsamoht/clustermg/main/assets/schema_input.json",
+    "title": "dsamoht/clustermg pipeline - params.input schema",
+    "description": "Schema for the file provided with params.input",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._-]+$",
+                "errorMessage": "Assembly name must be provided and may only contain letters, digits, '.', '_' and '-': it prefixes every contig, gene and MAG id of the assembly",
+                "meta": ["id"]
+            },
+            "assembly": {
+                "type": "string",
+                "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                "errorMessage": "The assembly must be a FASTA file ('.fa', '.fasta' or '.fna', optionally gzipped) and its path cannot contain spaces"
+            },
+            "bins": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "The path to the bins directory cannot contain spaces"
+            },
+            "checkm2": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "The path to the CheckM2 quality report cannot contain spaces"
+            }
+        },
+        "required": ["name", "assembly"],
+        "dependentRequired": {
+            "bins": ["checkm2"],
+            "checkm2": ["bins"]
+        },
+        "errorMessage": {
+            "dependentRequired": "Bins need their CheckM2 quality report: provide both 'bins' and 'checkm2', or neither"
+        }
+    },
+    "uniqueEntries": ["name"]
+}

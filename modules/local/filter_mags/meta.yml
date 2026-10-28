@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "filter_mags"
+description: Filter the MAGs of the run on completeness, contamination and length, and write dRep's inputs
+keywords:
+  - mag
+  - quality
+  - filter
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+    - mag_info:
+        type: file
+        description: mag_info.tsv tables of every assembly
+output:
+  quality:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "mag_quality.tsv":
+          type: file
+          description: Every MAG of the run and whether it passed the filter
+          pattern: "mag_quality.tsv"
+  genome_info:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "genome_info.csv":
+          type: file
+          description: dRep genomeInfo table of the MAGs that passed
+          pattern: "genome_info.csv"
+  passing:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "passing_mags.txt":
+          type: file
+          description: File names of the MAGs that passed
+          pattern: "passing_mags.txt"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

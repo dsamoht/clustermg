@@ -1,0 +1,65 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "summarize_mags"
+description: Give every MAG of the run its status and collect the final, dereplicated MAGs
+keywords:
+  - dereplication
+  - mag
+  - summary
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+    - quality:
+        type: file
+        description: mag_quality.tsv written by FILTER_MAGS
+  - drep_tables:
+      type: file
+      description: dRep data tables, or `[]` when dRep did not run
+  - contig2mag:
+      type: file
+      description: contig2mag.tsv tables of every assembly
+  - mags:
+      type: file
+      description: Every MAG of the run in FASTA format, or `[]`
+output:
+  summary:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "mags_summary.tsv":
+          type: file
+          description: Every MAG with its quality, status and representative
+          pattern: "mags_summary.tsv"
+  final_contig2mag:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "final_contig2mag.tsv":
+          type: file
+          description: Contigs of the final MAGs
+          pattern: "final_contig2mag.tsv"
+  final_mags:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "*.fa":
+          type: file
+          description: The final, dereplicated MAGs
+          pattern: "*.fa"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

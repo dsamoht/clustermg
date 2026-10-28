@@ -1,0 +1,51 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "assign_genes"
+description: Assign every protein that matches a final-MAG representative to it, and set the rest aside
+keywords:
+  - genes
+  - assignment
+  - mag
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+    - proteins:
+        type: file
+        description: Proteins outside the final MAGs, or `[]`
+  - hits:
+      type: file
+      description: MMseqs2 hits against the final-MAG representatives, or `[]`
+output:
+  assigned:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "assigned.tsv":
+          type: file
+          description: Representative and member of every assigned protein
+          pattern: "assigned.tsv"
+  unassigned:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "unassigned.faa":
+          type: file
+          description: Proteins left for de novo clustering
+          pattern: "unassigned.faa"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"
