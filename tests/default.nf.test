@@ -1,0 +1,198 @@
+nextflow_pipeline {
+
+    name "Test pipeline"
+    script "../main.nf"
+    tag "pipeline"
+
+    // No snapshot: dRep scores and MMseqs2 cluster choices are not guaranteed to be the same
+    // across versions and thread counts. The tests check what the pipeline promises instead:
+    // which MAGs are final, one catalog record per representative, and the forcing rule.
+
+    test("-profile test") {
+
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def rows = { file_path ->
+                def lines = path(file_path).readLines()
+                def header = lines[0].split('\t') as List
+                lines.drop(1).collect { line -> [ header, line.split('\t', -1) as List ].transpose().collectEntries() }
+            }
+            def records = { file_path -> path(file_path).readLines().count { line -> line.startsWith('>') } }
+
+            assert workflow.success
+
+            // The mutated copy of bin 001 is represented by it, the incomplete bin 002 is left out
+            def mags = rows("$outputDir/mags/mags_summary.tsv").collectEntries { row -> [ row.mag_id, row ] }
+            assert mags.collectEntries { id, row -> [ id, row.status ] } == [
+                'minigut1_bin_001'  : 'final',
+                'minigut1_bin_002'  : 'low_quality',
+                'minigut1_mut_bin.1': 'redundant',
+            ]
+            assert mags['minigut1_mut_bin.1'].representative == 'minigut1_bin_001'
+            assert new File("$outputDir/mags/final").list().toList() == [ 'minigut1_bin_001.fa' ]
+            assert path("$outputDir/mags/drep/Cdb.csv").exists()
+
+            // One catalog record per representative, in every format
+            def clusters = rows("$outputDir/genes/gene_clusters.tsv")
+            def reps = clusters.collect { row -> row.representative }.unique()
+            assert records("$outputDir/genes/gene_catalog.faa") == reps.size()
+            assert records("$outputDir/genes/gene_catalog.fna") == reps.size()
+            assert path("$outputDir/genes/gene_catalog.gff").readLines().count { line -> !line.startsWith('#') } == reps.size()
+
+            // The forcing rule: a final-MAG gene is only ever represented by a final-MAG gene
+            def status_of = clusters.collectEntries { row -> [ row.member, row.member_mag_status ] }
+            def final_genes = clusters.findAll { row -> row.member_mag_status == 'final' }
+            assert final_genes
+            assert final_genes.every { row -> status_of[row.representative] == 'final' }
+
+            // The mutated copy of bin 001 is mostly absorbed by the genes of bin 001
+            def copy = clusters.findAll { row -> row.member_mag == 'minigut1_mut_bin.1' }
+            assert copy.count { row -> row.step == 'mag_assigned' } > copy.size() / 2
+
+            // About 99% ANI: the two copies of bin 001 are one group at 98% as well
+            assert mags.values().findAll { row -> row.status != 'low_quality' }
+                .every { row -> row.fine_cluster == '1_1.1' && row.fine_representative == 'minigut1_bin_001' }
+
+            // Every read library is mapped once, onto all the assemblies: each DNA read is counted
+            // on one contig only
+            def libraries = rows("$outputDir/coverage/libraries.tsv").collectEntries { row -> [ row.library, row ] }
+            assert libraries.keySet() == [ 's1_dna', 's1_rna', 's2_dna', 's3_dna' ] as Set
+            def contig_reads = rows("$outputDir/coverage/contig_dna_counts.tsv")
+                .groupBy { row -> row.library }
+                .collectEntries { library, counts -> [ library, counts.sum { row -> row.reads as long } ] }
+            assert [ 's1_dna', 's2_dna', 's3_dna' ].every { library -> contig_reads[library] == libraries[library].primary_mapped as long }
+
+            // Bin 001 holds the reads of its own contigs (s1), of its redundant copy (s3, simulated
+            // from minigut1_mut) and of the stretches of minigut1_frag linked to it (s2, simulated from
+            // that unbinned copy), though only s1 has reads on bin 001's own contigs
+            def links = rows("$outputDir/coverage/contig_links.tsv")
+            assert links.count { row -> row.contig.startsWith('minigut1_frag_') && row.mag_id == 'minigut1_bin_001' } > 50
+            def final_dna = rows("$outputDir/mags/final_mag_dna.tsv").collectEntries { row -> [ row.library, row.reads as long ] }
+            def own = rows("$outputDir/mags/mag_dna_profile.tsv")
+                .findAll { row -> row.mag_id == 'minigut1_bin_001' }
+                .collectEntries { row -> [ row.library, row.reads as long ] }
+            assert final_dna.s3_dna == libraries.s3_dna.primary_mapped as long && own.s3_dna == 0
+            assert final_dna.s2_dna == libraries.s2_dna.primary_mapped as long && own.s2_dna == 0
+            assert final_dna.s1_dna == own.s1_dna && own.s1_dna > 0
+
+            // RNA: SortMeRNA removes the 500 simulated rRNA pairs before mapping, and bwa-mem2 maps
+            // the Illumina reads; reverse stranded, nearly every fragment left lands on a gene, and
+            // the catalog adds the copies up without losing or adding one (to featureCounts' rounding)
+            assert libraries.s1_rna.input_reads as long == 5000
+            assert libraries.s1_rna.rrna_reads as long == 1000
+            def versions = path("$outputDir/pipeline_info/clustermg_software_versions.yml").text
+            assert versions.contains('BWAMEM2_MEM') && versions.contains('SORTMERNA')
+            def assigned = libraries.s1_rna.assigned as double
+            assert assigned >= 0.95 * (libraries.s1_rna.primary_reads as double) / 2
+            def expression = rows("$outputDir/genes/gene_expression.tsv")
+            assert Math.abs(expression.sum { row -> row.reads as double } - assigned) < 1
+            assert Math.abs(expression.sum { row -> row.tpm as double } - 1e6) < 1
+
+            // The database holds every table, and no link points nowhere
+            def checks = rows("$outputDir/database/database_checks.tsv").collectEntries { row -> [ row.check, row.value as long ] }
+            assert checks.findAll { check, _value -> check.startsWith('broken:') }.every { _check, value -> value == 0 }
+            assert [ 'rows:gene', 'rows:contig_dna_counts', 'rows:link_dna_counts', 'rows:gene_rna_counts' ].every { check -> checks[check] > 0 }
+            assert path("$outputDir/database/clustermg.duckdb").exists()
+        }
+    }
+
+    test("-profile test, a FastQ given for two libraries is refused") {
+
+        when {
+            params {
+                reads  = "${projectDir}/tests/data/reads_duplicate.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.stdout.any { line -> line.contains("is given more than once") }
+        }
+    }
+
+    test("-profile test, RNA from long reads is refused") {
+
+        when {
+            params {
+                reads  = "${projectDir}/tests/data/reads_rna_ont.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            assert workflow.failed
+            assert workflow.stdout.any { line -> line.contains("platform 'ont' is not supported for RNA") }
+        }
+    }
+
+    test("-profile test, assemblies without bins") {
+
+        when {
+            params {
+                input  = "${projectDir}/tests/data/samplesheet_nobins.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def rows = { file_path ->
+                def lines = path(file_path).readLines()
+                def header = lines[0].split('\t') as List
+                lines.drop(1).collect { line -> [ header, line.split('\t', -1) as List ].transpose().collectEntries() }
+            }
+            def records = { file_path -> path(file_path).readLines().count { line -> line.startsWith('>') } }
+
+            assert workflow.success
+
+            // No MAG: the catalog is a plain MMseqs2 clustering of every gene, and the reads are
+            // counted on contigs and genes only
+            assert rows("$outputDir/mags/mags_summary.tsv").isEmpty()
+            assert rows("$outputDir/mags/final_mag_dna.tsv").isEmpty()
+            assert rows("$outputDir/coverage/contig_links.tsv").isEmpty()
+            assert rows("$outputDir/coverage/contig_dna_counts.tsv")
+            assert path("$outputDir/database/clustermg.duckdb").exists()
+            assert !new File("$outputDir/mags/final").exists()
+            def clusters = rows("$outputDir/genes/gene_clusters.tsv")
+            assert clusters
+            assert clusters.every { row -> row.member_mag_status == 'unbinned' && row.step == 'de_novo' }
+            assert records("$outputDir/genes/gene_catalog.faa") == clusters.collect { row -> row.representative }.unique().size()
+        }
+    }
+
+    test("-profile test, a single MAG past the filter") {
+
+        when {
+            params {
+                input  = "${projectDir}/tests/data/samplesheet_single.csv"
+                outdir = "$outputDir"
+            }
+        }
+
+        then {
+            def rows = { file_path ->
+                def lines = path(file_path).readLines()
+                def header = lines[0].split('\t') as List
+                lines.drop(1).collect { line -> [ header, line.split('\t', -1) as List ].transpose().collectEntries() }
+            }
+
+            assert workflow.success
+
+            // dRep has nothing to compare one MAG with, so it does not run
+            assert !new File("$outputDir/mags/drep").exists()
+            def mags = rows("$outputDir/mags/mags_summary.tsv").collectEntries { row -> [ row.mag_id, row ] }
+            assert mags.collectEntries { id, row -> [ id, row.status ] } == [
+                'minigut1_bin_001': 'final',
+                'minigut1_bin_002': 'low_quality',
+            ]
+            // A MAG dereplicated alone is its own finer group
+            assert mags['minigut1_bin_001'].fine_representative == 'minigut1_bin_001'
+            assert new File("$outputDir/mags/final").list().toList() == [ 'minigut1_bin_001.fa' ]
+        }
+    }
+}

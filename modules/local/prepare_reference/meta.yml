@@ -1,0 +1,81 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "prepare_reference"
+description: Write the mapping reference of every read library, every contig of every assembly, and the two sides of the link alignment
+keywords:
+  - reference
+  - mapping
+  - contigs
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'reference' ]`
+    - contigs:
+        type: file
+        description: Renamed contigs of every assembly
+        pattern: "*.contigs.fa"
+  - gffs:
+      type: file
+      description: Predicted genes of every assembly
+      pattern: "*.gff"
+  - contig2mag:
+      type: file
+      description: Renamed contig of every MAG, one table per assembly
+      pattern: "*.contig2mag.tsv"
+  - mags_summary:
+      type: file
+      description: Status of every input MAG
+      pattern: "mags_summary.tsv"
+output:
+  reference:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - "reference.fa":
+          type: file
+          description: Every contig of every assembly
+          pattern: "reference.fa"
+  link_sequences:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - "link_query.fa":
+          type: file
+          description: Contigs that are unbinned or in a low-quality MAG
+          pattern: "link_query.fa"
+      - "link_target.fa":
+          type: file
+          description: Contigs of the MAGs that passed the filter
+          pattern: "link_target.fa"
+  contigs_bed:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - "contigs.bed":
+          type: file
+          description: Every contig, whole, named `contig`
+          pattern: "contigs.bed"
+  saf:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - "reference_genes.saf":
+          type: file
+          description: Every predicted gene, for featureCounts
+          pattern: "reference_genes.saf"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

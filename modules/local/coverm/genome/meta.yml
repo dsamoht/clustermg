@@ -1,0 +1,49 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "coverm_genome"
+description: Profile every MAG on its own contigs in every DNA library
+keywords:
+  - coverage
+  - mag
+  - abundance
+tools:
+  - "coverm":
+      description: Read coverage calculator for metagenomics
+      homepage: https://github.com/wwood/CoverM
+      documentation: https://wwood.github.io/CoverM/coverm-genome.html
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:coverm
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'mags' ]`
+    - bams:
+        type: file
+        description: Sorted alignments of every DNA library
+        pattern: "*.bam"
+    - bais:
+        type: file
+        description: BAM indexes
+        pattern: "*.bam.bai"
+  - mags:
+      type: file
+      description: Every renamed MAG
+      pattern: "*.fa"
+output:
+  stats:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'mags' ]`
+      - "coverm_genome.tsv":
+          type: file
+          description: Reads, mean, trimmed mean and covered fraction of every MAG
+          pattern: "coverm_genome.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

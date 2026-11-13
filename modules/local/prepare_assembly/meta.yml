@@ -1,0 +1,79 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "prepare_assembly"
+description: Rename the contigs and MAGs of an assembly after it, and check its bins against it
+keywords:
+  - assembly
+  - mag
+  - rename
+  - validation
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+    - assembly:
+        type: file
+        description: Assembly in FASTA format, optionally gzipped
+    - bins:
+        type: file
+        description: Directory of bin FASTA files, or `[]` for an assembly without bins
+    - checkm2:
+        type: file
+        description: CheckM2 quality_report.tsv of the bins, or `[]`
+output:
+  contigs:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "*.contigs.fa":
+          type: file
+          description: Assembly with contigs renamed `<name>_<contig>`
+          pattern: "*.contigs.fa"
+  mags:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "mags/*.fa":
+          type: file
+          description: MAGs renamed `<name>_<bin>` with renamed contig headers, none without bins
+          pattern: "mags/*.fa"
+  contig2mag:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "*.contig2mag.tsv":
+          type: file
+          description: Renamed contig of every MAG
+          pattern: "*.contig2mag.tsv"
+  mag_info:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "*.mag_info.tsv":
+          type: file
+          description: Size, N50 and CheckM2 quality of every MAG
+          pattern: "*.mag_info.tsv"
+  contig_names:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "*.contig_names.tsv":
+          type: file
+          description: Renamed contig and the original contig name
+          pattern: "*.contig_names.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

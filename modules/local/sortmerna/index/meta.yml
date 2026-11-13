@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "sortmerna_index"
+description: Index the rRNA databases once for every SORTMERNA task
+keywords:
+  - rrna
+  - index
+  - metatranscriptomics
+tools:
+  - "sortmerna":
+      description: Local sequence alignment tool for filtering, mapping and clustering, used to remove rRNA reads
+      homepage: https://github.com/sortmerna/sortmerna
+      documentation: https://sortmerna.readthedocs.io
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:sortmerna
+input:
+  - fastas:
+      type: file
+      description: rRNA databases, one FASTA each
+      pattern: "*.{fa,fasta}"
+output:
+  index:
+    - "idx":
+        type: directory
+        description: SortMeRNA index of the databases
+        pattern: "idx"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

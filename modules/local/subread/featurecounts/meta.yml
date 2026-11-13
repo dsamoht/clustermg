@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "subread_featurecounts"
+description: Count the fragments of an RNA library on every gene, strand-aware
+keywords:
+  - rna
+  - counts
+  - genes
+tools:
+  - "featurecounts":
+      description: Assigns sequencing reads to genomic features (Subread package)
+      homepage: https://subread.sourceforge.net
+      documentation: https://subread.sourceforge.net/SubreadUsersGuide.pdf
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:subread
+input:
+  - - meta:
+        type: map
+        description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness`, `single_end` and its minimap2 `preset`
+    - bam:
+        type: file
+        description: Sorted alignments of the library
+        pattern: "*.bam"
+    - bai:
+        type: file
+        description: BAM index
+        pattern: "*.bam.bai"
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'reference' ]`
+    - saf:
+        type: file
+        description: Every predicted gene
+        pattern: "*.saf"
+output:
+  counts:
+    - - meta:
+          type: map
+          description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness`, `single_end` and its minimap2 `preset`
+      - "*.featureCounts.tsv":
+          type: file
+          description: Fragments of every gene
+          pattern: "*.featureCounts.tsv"
+      - "*.featureCounts.tsv.summary":
+          type: file
+          description: Assigned and unassigned fragments
+          pattern: "*.featureCounts.tsv.summary"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

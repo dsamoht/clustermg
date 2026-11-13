@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "samtools_flagstat"
+description: Count the reads of a library, as given and as mapped
+keywords:
+  - statistics
+  - counts
+  - bam
+tools:
+  - "samtools":
+      description: Tools for manipulating next-generation sequencing data
+      homepage: http://www.htslib.org
+      documentation: http://www.htslib.org/doc/samtools.html
+      licence: ["MIT"]
+      identifier: biotools:samtools
+input:
+  - - meta:
+        type: map
+        description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness` and `single_end`
+    - bam:
+        type: file
+        description: Sorted alignments of the library
+        pattern: "*.bam"
+    - bai:
+        type: file
+        description: BAM index
+        pattern: "*.bam.bai"
+output:
+  flagstat:
+    - - meta:
+          type: map
+          description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness` and `single_end`
+      - "*.flagstat.tsv":
+          type: file
+          description: samtools flagstat of the BAM
+          pattern: "*.flagstat.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

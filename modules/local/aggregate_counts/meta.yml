@@ -1,0 +1,137 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "aggregate_counts"
+description: Gather the counts of every read library and add them up into final MAGs, finer groups and catalog genes
+keywords:
+  - counts
+  - abundance
+  - expression
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'counts' ]`
+    - library_sheet:
+        type: file
+        description: library, sample, molecule, platform, layout, strandedness
+        pattern: "library_sheet.tsv"
+  - flagstats:
+      type: file
+      description: samtools flagstat of every library
+      pattern: "*.flagstat.tsv"
+  - bedcovs:
+      type: file
+      description: bedcov tables of the DNA libraries, `[]` without one
+      pattern: "*.bedcov.tsv"
+  - featurecounts:
+      type: file
+      description: featureCounts tables and summaries of the RNA libraries, `[]` without one
+      pattern: "*.featureCounts.tsv*"
+  - sortmerna_logs:
+      type: file
+      description: SortMeRNA logs of the RNA libraries, `[]` without rRNA removal
+      pattern: "*.sortmerna.log"
+  - coverm:
+      type: file
+      description: CoverM genome table, `[]` without a MAG
+      pattern: "coverm_genome.tsv"
+  - contig_links:
+      type: file
+      description: Every linked stretch and its MAG
+      pattern: "contig_links.tsv"
+  - contig2mag:
+      type: file
+      description: Renamed contig of every MAG, one table per assembly
+      pattern: "*.contig2mag.tsv"
+  - mags_summary:
+      type: file
+      description: Status, representative and finer group of every input MAG
+      pattern: "mags_summary.tsv"
+  - gene_clusters:
+      type: file
+      description: Representative of every gene
+      pattern: "gene_clusters.tsv"
+  - saf:
+      type: file
+      description: Every predicted gene
+      pattern: "reference_genes.saf"
+output:
+  libraries:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "libraries.tsv":
+          type: file
+          description: Every library with its read totals
+          pattern: "libraries.tsv"
+  contig_dna_counts:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "contig_dna_counts.tsv":
+          type: file
+          description: Reads, aligned and covered bases of every contig in every DNA library
+          pattern: "contig_dna_counts.tsv"
+  link_dna_counts:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "link_dna_counts.tsv":
+          type: file
+          description: The same for every linked stretch
+          pattern: "link_dna_counts.tsv"
+  mag_dna_profile:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "mag_dna_profile.tsv":
+          type: file
+          description: CoverM profile of every MAG on its own contigs
+          pattern: "mag_dna_profile.tsv"
+  final_mag_dna:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "final_mag_dna.tsv":
+          type: file
+          description: Reads and mean depth of every final MAG's dRep cluster
+          pattern: "final_mag_dna.tsv"
+  fine_group_dna:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "fine_group_dna.tsv":
+          type: file
+          description: Reads and mean depth of every finer group
+          pattern: "fine_group_dna.tsv"
+  gene_rna_counts:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "gene_rna_counts.tsv":
+          type: file
+          description: Fragments of every gene copy in every RNA library
+          pattern: "gene_rna_counts.tsv"
+  gene_expression:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'counts' ]`
+      - "gene_expression.tsv":
+          type: file
+          description: Fragments and TPM of every catalog gene in every RNA library
+          pattern: "gene_expression.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

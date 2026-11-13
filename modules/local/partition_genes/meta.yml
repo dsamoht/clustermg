@@ -1,0 +1,51 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "partition_genes"
+description: Split the proteins of an assembly between the final MAGs and the rest
+keywords:
+  - genes
+  - mag
+  - partition
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+    - faa:
+        type: file
+        description: Proteins predicted on the assembly
+  - final_contig2mag:
+      type: file
+      description: Contigs of the final MAGs
+output:
+  mag_genes:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "*.mag_genes.faa":
+          type: file
+          description: Proteins predicted on final-MAG contigs
+          pattern: "*.mag_genes.faa"
+  other_genes:
+    - - meta:
+          type: map
+          description: Groovy Map containing the assembly name, e.g. `[ id:'sample1' ]`
+      - "*.other_genes.faa":
+          type: file
+          description: Every other protein of the assembly
+          pattern: "*.other_genes.faa"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

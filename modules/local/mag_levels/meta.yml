@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "mag_levels"
+description: Group the dereplicated MAGs at a finer ANI level, cut from the tree dRep built
+keywords:
+  - mag
+  - dereplication
+  - ani
+tools:
+  - "python":
+      description: Helper script shipped in bin/, run with the scipy of the dRep container
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'mags' ]`
+    - drep_tables:
+        type: file
+        description: dRep data tables, Ndb.csv, Cdb.csv and Sdb.csv among them
+        pattern: "*.csv"
+output:
+  levels:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'mags' ]`
+      - "mag_levels.tsv":
+          type: file
+          description: dRep cluster, finer group and finer representative of every dereplicated MAG
+          pattern: "mag_levels.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"
