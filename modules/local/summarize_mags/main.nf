@@ -21,8 +21,9 @@ process SUMMARIZE_MAGS {
 
     script:
     // `drep_tables` is empty when dRep did not run (fewer than two MAGs passed the filter),
-    // and so is `mags` when no assembly came with bins
-    def drep_args = drep_tables ? "--cdb drep/Cdb.csv --sdb drep/Sdb.csv --wdb drep/Wdb.csv" : ''
+    // and so is `mags` when no assembly came with bins. With dRep, it also holds MAG_LEVELS'
+    // finer groups.
+    def drep_args = drep_tables ? "--cdb drep/Cdb.csv --sdb drep/Sdb.csv --wdb drep/Wdb.csv --levels drep/mag_levels.tsv" : ''
     def mags_args = mags ? "--mags mags/*" : ''
     """
     summarize_mags.py \\

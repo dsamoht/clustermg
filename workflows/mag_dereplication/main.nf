@@ -2,6 +2,7 @@
 
 include { DREP           } from '../../modules/local/drep'
 include { FILTER_MAGS    } from '../../modules/local/filter_mags'
+include { MAG_LEVELS     } from '../../modules/local/mag_levels'
 include { SUMMARIZE_MAGS } from '../../modules/local/summarize_mags'
 
 workflow MAG_DEREPLICATION {
@@ -50,11 +51,20 @@ workflow MAG_DEREPLICATION {
     ch_versions = ch_versions.mix(DREP.out.versions)
 
     //
+    // MODULE: group the same MAGs at a finer ANI, cut from the tree dRep built
+    //
+    MAG_LEVELS(DREP.out.tables)
+    ch_versions = ch_versions.mix(MAG_LEVELS.out.versions)
+
+    //
     // MODULE: give every MAG its status and collect the final ones
     //
     SUMMARIZE_MAGS(
         FILTER_MAGS.out.quality,
-        DREP.out.tables.map { _meta, tables -> tables }.ifEmpty([]),
+        DREP.out.tables
+            .join(MAG_LEVELS.out.levels)
+            .map { _meta, tables, levels -> tables + [ levels ] }
+            .ifEmpty([]),
         ch_all_contig2mag,
         ch_all_mags
     )

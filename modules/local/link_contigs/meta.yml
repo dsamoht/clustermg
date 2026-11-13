@@ -1,0 +1,57 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "link_contigs"
+description: Tie the stretches of unbinned and low-quality contigs to the MAG they are a copy of
+keywords:
+  - mag
+  - contigs
+  - coverage
+tools:
+  - "python":
+      description: Helper script shipped in bin/
+      homepage: https://www.python.org
+      documentation: https://docs.python.org
+      licence: ["PSF-2.0"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'reference' ]`
+    - contigs_bed:
+        type: file
+        description: Every contig, whole
+        pattern: "contigs.bed"
+    - paf:
+        type: file
+        description: Alignments of MINIMAP2_ALIGN_CONTIGS, or `[]` without a passing MAG
+        pattern: "*.paf"
+  - contig2mag:
+      type: file
+      description: Renamed contig of every MAG, one table per assembly
+      pattern: "*.contig2mag.tsv"
+output:
+  links:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - "contig_links.tsv":
+          type: file
+          description: Every linked stretch and its MAG
+          pattern: "contig_links.tsv"
+  regions:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - "regions.bed":
+          type: file
+          description: The contigs and the linked stretches DNA is counted on
+          pattern: "regions.bed"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

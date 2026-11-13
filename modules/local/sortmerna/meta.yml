@@ -1,0 +1,57 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "sortmerna"
+description: Remove the rRNA reads of an RNA library before it is mapped
+keywords:
+  - rrna
+  - filtering
+  - metatranscriptomics
+tools:
+  - "sortmerna":
+      description: Local sequence alignment tool for filtering, mapping and clustering, used to remove rRNA reads
+      homepage: https://github.com/sortmerna/sortmerna
+      documentation: https://sortmerna.readthedocs.io
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:sortmerna
+input:
+  - - meta:
+        type: map
+        description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness` and `single_end`
+    - reads:
+        type: file
+        description: FastQ of the library, one file or two mates
+        pattern: "*.{fq,fastq}{,.gz}"
+  - fastas:
+      type: file
+      description: rRNA databases, staged under the names SORTMERNA_INDEX indexed them with
+      pattern: "*.{fa,fasta}"
+  - index:
+      type: directory
+      description: SortMeRNA index of the databases
+      pattern: "idx"
+output:
+  reads:
+    - - meta:
+          type: map
+          description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness` and `single_end`
+      - "*.non_rRNA.fastq.gz":
+          type: file
+          description: The reads that are not rRNA, both mates removed when either is
+          pattern: "*.non_rRNA.fastq.gz"
+  log:
+    - - meta:
+          type: map
+          description: Groovy Map of the read library, with `id`, `sample`, `molecule`, `platform`, `strandedness` and `single_end`
+      - "*.sortmerna.log":
+          type: file
+          description: SortMeRNA log, with the reads it was given and those it aligned to rRNA
+          pattern: "*.sortmerna.log"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

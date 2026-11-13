@@ -70,7 +70,7 @@ def test_contigs_and_mags_are_renamed(tmp_path):
     assert result.returncode == 0, result.stderr
 
     assert headers(tmp_path / "S1.contigs.fa") == ["S1_c1", "S1_c2", "S1_c3"]
-    assert read_tsv(tmp_path / "S1.contig_names.tsv")[1] == {"contig": "S1_c2", "original_contig": "c2"}
+    assert read_tsv(tmp_path / "S1.contig_names.tsv")[1] == {"contig": "S1_c2", "original_contig": "c2", "length": "4"}
     # a bin already named after its assembly keeps its name, any other gets the prefix
     assert headers(tmp_path / "mags" / "S1_bin.1.fa") == ["S1_c1"]
     assert headers(tmp_path / "mags" / "S1_bin_002.fa") == ["S1_c3"]
@@ -116,6 +116,7 @@ def test_bin_contig_case_does_not_matter(tmp_path):
     ({"b.fa": ">c1\nACGTACGA\n"}, checkm_row("b", 90, 1), "differs from the same contig"),
     ({"b.fa": ">c1\nACGTACGT\n", "d.fa": ">c1\nACGTACGT\n"}, checkm_row("b", 90, 1) + checkm_row("d", 90, 1),
      "is in two bins"),
+    ({"b.fa": ">c1\nACGTACGT\n>c1\nACGTACGT\n"}, checkm_row("b", 90, 1), "is listed twice in bin"),
     ({"b.fa": ">c1\nACGTACGT\n"}, checkm_row("other", 90, 1), "no CheckM2 row"),
     ({"notes.txt": "not a bin\n"}, "", "no FASTA file"),
     ({"b.fa": ">c1\nACGTACGT\n", "b.fasta": ">c2\nGGCC\n"}, checkm_row("b", 90, 1), "would both become MAG"),
@@ -196,7 +197,10 @@ def summarize(tmp_path, passing, failing=(), drep=None):
               + "".join(f"{g}.fa,{c},0.05,average,skani,{c.split('_')[0]}\n" for g, c in clusters.items()))
         write(tmp_path / "Sdb.csv", "genome,score\n" + "".join(f"{g}.fa,{s}\n" for g, s in scores.items()))
         write(tmp_path / "Wdb.csv", "genome,cluster,score\n" + "".join(f"{g}.fa,{c},{scores[g]}\n" for c, g in winners.items()))
-        args += ["--cdb", "Cdb.csv", "--sdb", "Sdb.csv", "--wdb", "Wdb.csv"]
+        # one finer group per dRep cluster, represented by its winner
+        write(tmp_path / "mag_levels.tsv", "mag_id\tsecondary_cluster\tfine_cluster\tfine_representative\n"
+              + "".join(f"{g}\t{c}\t{c}.1\t{winners[c]}\n" for g, c in clusters.items()))
+        args += ["--cdb", "Cdb.csv", "--sdb", "Sdb.csv", "--wdb", "Wdb.csv", "--levels", "mag_levels.tsv"]
     return run("summarize_mags.py", *args, cwd=tmp_path)
 
 
@@ -213,7 +217,9 @@ def test_summary_with_drep_tables(tmp_path):
     assert summary["A2"]["representative"] == "A"
     assert summary["A2"]["secondary_cluster"] == "1_1"
     assert summary["A2"]["drep_score"] == "60.1"
+    assert (summary["A2"]["fine_cluster"], summary["A2"]["fine_representative"]) == ("1_1.1", "A")
     assert summary["B"]["representative"] == ""
+    assert summary["B"]["fine_representative"] == ""
     assert [(r["contig"], r["mag_id"]) for r in read_tsv(tmp_path / "final_contig2mag.tsv")] == [
         ("A_ctg1", "A"), ("A_ctg2", "A"), ("C_ctg1", "C"), ("C_ctg2", "C")]
     assert sorted(p.name for p in (tmp_path / "final_mags").iterdir()) == ["A.fa", "C.fa"]
@@ -222,8 +228,9 @@ def test_summary_with_drep_tables(tmp_path):
 def test_summary_without_drep_keeps_the_only_passing_mag(tmp_path):
     result = summarize(tmp_path, passing=["A"], failing=["B"])
     assert result.returncode == 0, result.stderr
-    assert {r["mag_id"]: r["status"] for r in read_tsv(tmp_path / "mags_summary.tsv")} == {
-        "A": "final", "B": "low_quality"}
+    summary = {r["mag_id"]: r for r in read_tsv(tmp_path / "mags_summary.tsv")}
+    assert {m: r["status"] for m, r in summary.items()} == {"A": "final", "B": "low_quality"}
+    assert (summary["A"]["fine_cluster"], summary["A"]["fine_representative"]) == ("", "A")
     assert sorted(p.name for p in (tmp_path / "final_mags").iterdir()) == ["A.fa"]
 
 
@@ -248,6 +255,67 @@ def test_summary_refuses_drep_tables_that_disagree_with_the_filter(tmp_path):
                        drep=({"A": "1_1"}, {"A": 80.0}, {"1_1": "A"}))
     assert result.returncode != 0
     assert "dRep clustered" in result.stderr
+
+
+# ------------------------------------------------------------------------------ mag_levels
+
+NDB_HEADER = "reference,querry,ani,alignment_coverage,primary_cluster\n"
+
+
+def ndb_rows(primary, ani, coverage=100.0):
+    """both directions of every pair in `ani`, plus the self comparisons, as dRep writes them"""
+    genomes = sorted({g for pair in ani for g in pair})
+    rows = [f"{g}.fa,{g}.fa,1.0,100.0,{primary}\n" for g in genomes]
+    for (a, b), value in ani.items():
+        rows += [f"{a}.fa,{b}.fa,{value},{coverage},{primary}\n", f"{b}.fa,{a}.fa,{value},{coverage},{primary}\n"]
+    return "".join(rows)
+
+
+def levels(tmp_path, ndb, clusters, scores, fine_ani=0.98, threshold="0.050000000000000044"):
+    pytest.importorskip("scipy")
+    write(tmp_path / "Ndb.csv", NDB_HEADER + ndb)
+    write(tmp_path / "Cdb.csv", "genome,secondary_cluster,threshold,cluster_method,comparison_algorithm,primary_cluster\n"
+          + "".join(f"{g}.fa,{c},{threshold},average,skani,{c.split('_')[0]}\n" for g, c in clusters.items()))
+    write(tmp_path / "Sdb.csv", "genome,score\n" + "".join(f"{g}.fa,{s}\n" for g, s in scores.items()))
+    return run("mag_levels.py", "--ndb", "Ndb.csv", "--cdb", "Cdb.csv", "--sdb", "Sdb.csv",
+               "--fine-ani", fine_ani, cwd=tmp_path)
+
+
+def test_finer_groups_nest_in_drep_clusters(tmp_path):
+    # A, A2 and A3 are one species (>= 95%); A3 is a strain of its own below 98%. C is alone.
+    ani = {("A", "A2"): 0.99, ("A", "A3"): 0.96, ("A2", "A3"): 0.965}
+    result = levels(tmp_path, ndb_rows(1, ani) + "C.fa,C.fa,1.0,100.0,2\n",
+                    clusters={"A": "1_1", "A2": "1_1", "A3": "1_1", "C": "2_1"},
+                    scores={"A": 70, "A2": 80, "A3": 90, "C": 50})
+    assert result.returncode == 0, result.stderr
+    rows = {r["mag_id"]: r for r in read_tsv(tmp_path / "mag_levels.tsv")}
+    # numbered by the score of their representative: A3 (90) alone, then A2 (80) with A
+    assert {m: (r["fine_cluster"], r["fine_representative"]) for m, r in rows.items()} == {
+        "A": ("1_1.2", "A2"), "A2": ("1_1.2", "A2"), "A3": ("1_1.1", "A3"), "C": ("2_1.1", "C")}
+
+
+def test_tree_that_does_not_give_back_drep_clusters_is_refused(tmp_path):
+    # 96% is one species, but dRep is said to have kept A and A2 apart
+    result = levels(tmp_path, ndb_rows(1, {("A", "A2"): 0.96}),
+                    clusters={"A": "1_1", "A2": "1_2"}, scores={"A": 70, "A2": 80})
+    assert result.returncode != 0
+    assert "does not give back dRep's clusters" in result.stderr
+
+
+def test_low_coverage_comparisons_are_ignored_as_drep_does(tmp_path):
+    # 99% ANI over 0.1% of the genome: at or below -nc, the pair is not the same species
+    result = levels(tmp_path, ndb_rows(1, {("A", "A2"): 0.99}, coverage=0.1),
+                    clusters={"A": "1_1", "A2": "1_2"}, scores={"A": 70, "A2": 80})
+    assert result.returncode == 0, result.stderr
+    assert {r["mag_id"]: r["fine_cluster"] for r in read_tsv(tmp_path / "mag_levels.tsv")} == {
+        "A": "1_1.1", "A2": "1_2.1"}
+
+
+def test_finer_level_below_drep_threshold_is_refused(tmp_path):
+    result = levels(tmp_path, ndb_rows(1, {("A", "A2"): 0.99}), clusters={"A": "1_1", "A2": "1_1"},
+                    scores={"A": 70, "A2": 80}, fine_ani=0.9)
+    assert result.returncode != 0
+    assert "must be at least as strict" in result.stderr
 
 
 # ------------------------------------------------------------------------- partition_genes
@@ -413,3 +481,189 @@ def test_gene_predicted_in_two_assemblies_is_refused(tmp_path):
     result = build(tmp_path, mag_clusters=None, assigned=[], other_clusters=[("X_c1_1", "X_c1_1")], genes=genes)
     assert result.returncode != 0
     assert "is predicted in both" in result.stderr
+
+
+# ----------------------------------------------------------------------- prepare_reference
+
+def reference_inputs(tmp_path):
+    """two assemblies: S1 with a final MAG (c1) and an unbinned contig (c2), S2 with a low-quality MAG (c1)"""
+    write(tmp_path / "S1.contigs.fa", ">S1_c1\nACGTACGT\n>S1_c2\nGGCC\n")
+    write(tmp_path / "S2.contigs.fa", ">S2_c1\nTTTTAAAA\nCC\n")
+    write(tmp_path / "S1.contig2mag.tsv", "contig\tmag_id\nS1_c1\tS1_m\n")
+    write(tmp_path / "S2.contig2mag.tsv", "contig\tmag_id\nS2_c1\tS2_low\n")
+    write(tmp_path / "mags_summary.tsv", "mag_id\tassembly\tgenome_size\tstatus\trepresentative\tfine_representative\n"
+          "S1_m\tS1\t8\tfinal\tS1_m\tS1_m\nS2_low\tS2\t10\tlow_quality\t\t\n")
+    write(tmp_path / "S1.gff", "##gff-version 3\n"
+          "S1_c1\tpyrodigal\tCDS\t1\t6\t.\t+\t0\tID=S1_c1_1;partial=00\n"
+          "S1_c2\tpyrodigal\tCDS\t1\t3\t.\t-\t0\tID=S1_c2_1;partial=10\n")
+    write(tmp_path / "S2.gff", "##gff-version 3\nS2_c1\tpyrodigal\tCDS\t2\t9\t.\t+\t0\tID=S2_c1_1;partial=00\n")
+
+
+def test_reference_holds_every_contig_and_splits_the_link_alignment(tmp_path):
+    reference_inputs(tmp_path)
+    result = run("prepare_reference.py", "--contigs", "S1.contigs.fa", "S2.contigs.fa", "--gff", "S1.gff", "S2.gff",
+                 "--contig2mag", "S1.contig2mag.tsv", "S2.contig2mag.tsv", "--mags-summary", "mags_summary.tsv",
+                 cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert headers(tmp_path / "reference.fa") == ["S1_c1", "S1_c2", "S2_c1"]
+    # the contigs of passing MAGs are the target; unbinned and low-quality contigs the query
+    assert headers(tmp_path / "link_target.fa") == ["S1_c1"]
+    assert headers(tmp_path / "link_query.fa") == ["S1_c2", "S2_c1"]
+    assert (tmp_path / "contigs.bed").read_text() == "S1_c1\t0\t8\tcontig\nS1_c2\t0\t4\tcontig\nS2_c1\t0\t10\tcontig\n"
+    assert read_tsv(tmp_path / "reference_genes.saf")[1] == {
+        "GeneID": "S1_c2_1", "Chr": "S1_c2", "Start": "1", "End": "3", "Strand": "-"}
+
+
+# ---------------------------------------------------------------------------- link_contigs
+
+def paf(query, qlen, qstart, qend, target, matches, block):
+    return f"{query}\t{qlen}\t{qstart}\t{qend}\t+\t{target}\t5000\t0\t{qend - qstart}\t{matches}\t{block}\t60\n"
+
+
+def test_stretches_link_to_their_best_mag(tmp_path):
+    write(tmp_path / "contigs.bed", "U1\t0\t3000\tcontig\nU2\t0\t900\tcontig\n")
+    write(tmp_path / "S1.contig2mag.tsv", "contig\tmag_id\nA_c1\tA\nB_c1\tB\n")
+    write(tmp_path / "links.paf",
+          paf("U1", 3000, 0, 1000, "A_c1", 990, 1000)       # 99% to A
+          + paf("U1", 3000, 200, 1200, "B_c1", 970, 1000)   # overlaps the better one: dropped
+          + paf("U1", 3000, 2000, 2800, "B_c1", 790, 800)   # 98.75% to B, elsewhere on U1
+          + paf("U1", 3000, 1500, 1900, "A_c1", 400, 400)   # too short (400 bp)
+          + paf("U2", 900, 0, 900, "A_c1", 800, 900))       # 88.9%: below the identity
+    result = run("link_contigs.py", "--paf", "links.paf", "--contigs-bed", "contigs.bed",
+                 "--contig2mag", "S1.contig2mag.tsv", "--min-identity", 0.95, "--min-length", 500, cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    links = read_tsv(tmp_path / "contig_links.tsv")
+    assert [(r["link_id"], r["mag_id"], r["identity"]) for r in links] == [
+        ("U1:1-1000", "A", "0.9900"), ("U1:2001-2800", "B", "0.9875")]
+    assert (tmp_path / "regions.bed").read_text().splitlines()[2:] == [
+        "U1\t0\t1000\tU1:1-1000", "U1\t2000\t2800\tU1:2001-2800"]
+
+
+def test_without_a_passing_mag_the_regions_are_the_contigs(tmp_path):
+    write(tmp_path / "contigs.bed", "U1\t0\t3000\tcontig\n")
+    write(tmp_path / "S1.contig2mag.tsv", "contig\tmag_id\n")
+    result = run("link_contigs.py", "--contigs-bed", "contigs.bed", "--contig2mag", "S1.contig2mag.tsv",
+                 "--min-identity", 0.95, "--min-length", 500, cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert read_tsv(tmp_path / "contig_links.tsv") == []
+    assert (tmp_path / "regions.bed").read_text() == "U1\t0\t3000\tcontig\n"
+
+
+# ------------------------------------------------------------------------ aggregate_counts
+
+def aggregate_inputs(tmp_path, rna_assigned=4):
+    """final MAG A with redundant A2 (another assembly) and a stretch of unbinned U1 linked to A2"""
+    write(tmp_path / "libraries.tsv", "library\tsample\tmolecule\tplatform\tlayout\tstrandedness\n"
+          "d1\ts1\tdna\tont\tsingle\t\nr1\ts1\trna\tillumina\tpaired\treverse\n")
+    for library in ("d1", "r1"):
+        write(tmp_path / f"{library}.flagstat.tsv", "100\t0\tprimary\n90\t0\tprimary mapped\n")
+    write(tmp_path / "d1.bedcov.tsv",
+          "A_c1\t0\t100\tcontig\t500\t80\t5\n"       # final MAG A
+          "A2_c1\t0\t200\tcontig\t300\t60\t3\n"      # redundant A2, represented by A
+          "U1\t0\t1000\tcontig\t900\t500\t9\n"       # unbinned contig...
+          "U1\t0\t400\tU1:1-400\t200\t100\t2\n"      # ...whose first 400 bp copy A2
+          "E\t0\t50\tcontig\t0\t0\t0\n")             # nothing: no row
+    write(tmp_path / "contig_links.tsv", "link_id\tcontig\tstart\tend\tmag_id\tidentity\taligned_length\n"
+          "U1:1-400\tU1\t0\t400\tA2\t0.9800\t400\n")
+    write(tmp_path / "S.contig2mag.tsv", "contig\tmag_id\nA_c1\tA\nA2_c1\tA2\n")
+    write(tmp_path / "mags_summary.tsv",
+          "mag_id\tassembly\tgenome_size\tstatus\trepresentative\tfine_representative\n"
+          "A\tS1\t100\tfinal\tA\tA\nA2\tS2\t200\tredundant\tA\tA2\n")
+    write(tmp_path / "gene_clusters.tsv", "representative\tmember\nA_c1_1\tA_c1_1\nA_c1_1\tU1_1\nU1_2\tU1_2\n")
+    write(tmp_path / "reference_genes.saf", "GeneID\tChr\tStart\tEnd\tStrand\n"
+          "A_c1_1\tA_c1\t1\t100\t+\nU1_1\tU1\t1\t300\t+\nU1_2\tU1\t401\t900\t-\n")
+    # a fragment split three ways is written 0.33 each: 0.01 short, within featureCounts' rounding
+    write(tmp_path / "r1.featureCounts.tsv", "# Program:featureCounts v2.1.1\n"
+          "Geneid\tChr\tStart\tEnd\tStrand\tLength\tr1.bam\n"
+          "A_c1_1\tA_c1\t1\t100\t+\t100\t1.33\nU1_1\tU1\t1\t300\t+\t300\t1.33\nU1_2\tU1\t401\t900\t-\t500\t1.33\n")
+    write(tmp_path / "r1.featureCounts.tsv.summary",
+          f"Status\tr1.bam\nAssigned\t{rna_assigned}\nUnassigned_NoFeatures\t6\n")
+    write(tmp_path / "coverm.tsv", "Genome\td1 Read Count\td1 Mean\td1 Trimmed Mean\td1 Covered Fraction\n"
+          "A\t5\t5.0\t4.5\t0.8\nA2\t3\t1.5\t1.2\t0.3\n")
+    # SortMeRNA was given 130 reads, 30 of them rRNA: the 100 of the flagstat reached the mapper
+    write(tmp_path / "r1.sortmerna.log", " Results:\n    Total reads = 130\n"
+          "    Total reads passing E-value threshold = 30 (23.08)\n")
+    return run("aggregate_counts.py", "--libraries", "libraries.tsv", "--flagstat", "d1.flagstat.tsv", "r1.flagstat.tsv",
+               "--bedcov", "d1.bedcov.tsv", "--featurecounts", "r1.featureCounts.tsv", "--coverm", "coverm.tsv",
+               "--sortmerna-log", "r1.sortmerna.log",
+               "--contig-links", "contig_links.tsv", "--contig2mag", "S.contig2mag.tsv",
+               "--mags-summary", "mags_summary.tsv", "--gene-clusters", "gene_clusters.tsv",
+               "--saf", "reference_genes.saf", cwd=tmp_path)
+
+
+def test_counts_add_up_through_the_links(tmp_path):
+    result = aggregate_inputs(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert len(read_tsv(tmp_path / "contig_dna_counts.tsv")) == 3
+    assert read_tsv(tmp_path / "link_dna_counts.tsv") == [
+        {"link_id": "U1:1-400", "library": "d1", "reads": "2", "aligned_bases": "200", "covered_bases": "100"}]
+    # final MAG A: its contigs, A2's, and the stretch of U1 linked to A2; depth over A's 100 bp
+    assert read_tsv(tmp_path / "final_mag_dna.tsv") == [
+        {"mag_id": "A", "library": "d1", "reads": "10", "aligned_bases": "1000", "mean_depth": "10"}]
+    # at the finer level A2 is a group of its own, with its linked stretch
+    assert {r["mag_id"]: (r["reads"], r["mean_depth"]) for r in read_tsv(tmp_path / "fine_group_dna.tsv")} == {
+        "A": ("5", "5"), "A2": ("5", "2.5")}
+    assert read_tsv(tmp_path / "mag_dna_profile.tsv")[0]["trimmed_mean"] == "4.5"
+    # RNA: U1_1 is a copy of A_c1_1, so the cluster has 3 fragments
+    expression = {r["representative"]: r for r in read_tsv(tmp_path / "gene_expression.tsv")}
+    assert expression["A_c1_1"]["reads"] == "2.66"
+    assert round(sum(float(r["tpm"]) for r in expression.values())) == 1_000_000
+    libraries = {r["library"]: r for r in read_tsv(tmp_path / "libraries.tsv")}
+    assert (libraries["r1"]["assigned"], libraries["r1"]["unassigned_no_features"]) == ("4", "6")
+    assert libraries["d1"]["primary_mapped"] == "90"
+    assert (libraries["r1"]["input_reads"], libraries["r1"]["rrna_reads"]) == ("130", "30")
+    assert (libraries["d1"]["input_reads"], libraries["d1"]["rrna_reads"]) == ("100", "")
+
+
+def test_gene_counts_that_disagree_with_featurecounts_are_refused(tmp_path):
+    result = aggregate_inputs(tmp_path, rna_assigned=5)
+    assert result.returncode != 0
+    assert "featureCounts assigned 5 fragments" in result.stderr
+
+
+# -------------------------------------------------------------------------- build_database
+
+def test_database_holds_every_table_and_derives_the_rest(tmp_path):
+    pytest.importorskip("duckdb")
+    aggregate_inputs(tmp_path)
+    counts = tmp_path / "counts"
+    counts.mkdir()
+    for name in ("libraries", "contig_links", "contig_dna_counts", "link_dna_counts", "mag_dna_profile",
+                 "gene_rna_counts"):
+        (counts / f"{name}.tsv").write_text((tmp_path / f"{name}.tsv").read_text())
+    write(tmp_path / "assemblies.tsv", "assembly\tkind\tsamples\tsource\nS1\tsingle\ts1\ta.fa\nS2\tco\ts1;s2\tb.fa\n")
+    write(tmp_path / "S1.contig_names.tsv", "contig\toriginal_contig\tlength\nA_c1\tc1\t100\nU1\tu1\t1000\nE\te\t50\n")
+    write(tmp_path / "S2.contig_names.tsv", "contig\toriginal_contig\tlength\nA2_c1\tc1\t200\n")
+    write(tmp_path / "mags_full.tsv",
+          "mag_id\tassembly\toriginal_bin\tn_contigs\tgenome_size\tn50\tcompleteness\tcontamination\tstatus\t"
+          "secondary_cluster\trepresentative\tdrep_score\tfine_cluster\tfine_representative\n"
+          "A\tS1\ta.fa\t1\t100\t100\t90\t1\tfinal\t1_1\tA\t80\t1_1.1\tA\n"
+          "A2\tS2\ta2.fa\t1\t200\t200\t80\t2\tredundant\t1_1\tA\t60\t1_1.2\tA2\n")
+    write(tmp_path / "S1.gff", "##gff-version 3\n"
+          "A_c1\tp\tCDS\t1\t100\t.\t+\t0\tID=A_c1_1;partial=00\n"
+          "U1\tp\tCDS\t1\t300\t.\t+\t0\tID=U1_1;partial=00\nU1\tp\tCDS\t401\t900\t.\t-\t0\tID=U1_2;partial=01\n")
+    write(tmp_path / "S2.gff", "##gff-version 3\n")
+    write(tmp_path / "clusters.tsv", "representative\tmember\tstep\nA_c1_1\tA_c1_1\tmag_cluster\n"
+          "A_c1_1\tU1_1\tmag_assigned\nU1_2\tU1_2\tde_novo\n")
+    write(tmp_path / "catalog.faa", ">A_c1_1\nMK*\n>U1_2\nMV*\n")
+    write(tmp_path / "catalog.fna", ">A_c1_1\nATGAAA\n>U1_2\nATGGTT\n")
+    result = run("build_database.py", "--assemblies", "assemblies.tsv",
+                 "--contig-names", "S1.contig_names.tsv", "S2.contig_names.tsv",
+                 "--contig2mag", "S.contig2mag.tsv", "--mags-summary", "mags_full.tsv", "--gff", "S1.gff", "S2.gff",
+                 "--gene-clusters", "clusters.tsv", "--catalog-faa", "catalog.faa", "--catalog-fna", "catalog.fna",
+                 "--counts", "counts", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    checks = {r["check"]: r["value"] for r in read_tsv(tmp_path / "database_checks.tsv")}
+    assert all(v == "0" for k, v in checks.items() if k.startswith("broken:"))
+    assert checks["rows:gene"] == "3" and checks["rows:sample"] == "2" and checks["rows:assembly_sample"] == "3"
+
+    import duckdb
+    con = duckdb.connect(str(tmp_path / "clustermg.duckdb"), read_only=True)
+    # the same sums as aggregate_counts.py, from the raw tables
+    assert con.execute("SELECT mag_id, reads, mean_depth FROM final_mag_dna").fetchall() == [("A", 10, 10.0)]
+    assert {g: round(r, 2) for g, r in con.execute("SELECT gene_id, reads FROM gene_expression").fetchall()} == {
+        "A_c1_1": 2.66, "U1_2": 1.33}
+    # U1_1 sits in the stretch of U1 linked to A2, so its fragments count for final MAG A
+    assert [(m, round(r, 2)) for m, r in con.execute("SELECT mag_id, reads FROM mag_expression").fetchall()] == [("A", 2.66)]
+    assert con.execute("SELECT start, stop FROM contig_link").fetchall() == [(1, 400)]
+    assert (tmp_path / "parquet" / "schema.sql").exists()

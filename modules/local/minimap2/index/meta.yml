@@ -1,0 +1,46 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "minimap2_index"
+description: Index the mapping reference for one minimap2 preset
+keywords:
+  - index
+  - alignment
+tools:
+  - "minimap2":
+      description: A versatile pairwise aligner for genomic and spliced nucleotide sequences
+      homepage: https://github.com/lh3/minimap2
+      documentation: https://lh3.github.io/minimap2/minimap2.html
+      licence: ["MIT"]
+      identifier: biotools:minimap2
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'reference' ]`
+    - preset:
+        type: string
+        description: minimap2 preset, `map-ont`, `map-hifi` or `sr`
+    - reference:
+        type: file
+        description: Every contig of every assembly
+        pattern: "*.fa"
+output:
+  index:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'reference' ]`
+      - preset:
+          type: string
+          description: minimap2 preset of the index
+      - "*.mmi":
+          type: file
+          description: minimap2 index
+          pattern: "*.mmi"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

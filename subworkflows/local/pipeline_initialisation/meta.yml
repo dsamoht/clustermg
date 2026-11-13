@@ -17,6 +17,11 @@ input:
       description: |
         Path to the comma-separated sample sheet.
       pattern: "*.csv"
+  - reads:
+      type: file
+      description: |
+        Path to the comma-separated sheet of read libraries, or null.
+      pattern: "*.csv"
 output:
   - samplesheet:
       type: list
@@ -25,6 +30,18 @@ output:
         `meta.id` the assembly name and `[]` for the bins and CheckM2 report of an assembly
         given without bins. Relative paths are resolved against the launch directory, then
         against the directory of the sample sheet.
+  - assemblies:
+      type: file
+      description: |
+        assemblies.tsv, the kind (`single`, `co` or empty) and the samples of every assembly,
+        from the `samples` column of the sample sheet.
+      pattern: "assemblies.tsv"
+  - reads:
+      type: list
+      description: |
+        Channel of `[ meta, [ fastq ] ]`, one entry per read library, with the library id,
+        sample, molecule, platform, strandedness and `single_end` in meta. Empty without
+        `--reads`. No FastQ file is in two entries.
 authors:
   - "@dsamoht"
 maintainers:

@@ -1,11 +1,11 @@
 #!/usr/bin/env nextflow
 
-include { ASSIGN_GENES                           } from '../../modules/local/assign_genes'
-include { BUILD_CATALOG                          } from '../../modules/local/build_catalog'
-include { MMSEQS_CLUSTER as MMSEQS_CLUSTER_MAG   } from '../../modules/local/mmseqs/cluster'
-include { MMSEQS_CLUSTER as MMSEQS_CLUSTER_OTHER } from '../../modules/local/mmseqs/cluster'
-include { MMSEQS_SEARCH                          } from '../../modules/local/mmseqs/search'
-include { PARTITION_GENES                        } from '../../modules/local/partition_genes'
+include { ASSIGN_GENES                                   } from '../../modules/local/assign_genes'
+include { BUILD_CATALOG                                  } from '../../modules/local/build_catalog'
+include { MMSEQS_EASYCLUSTER as MMSEQS_EASYCLUSTER_MAG   } from '../../modules/local/mmseqs/easycluster'
+include { MMSEQS_EASYCLUSTER as MMSEQS_EASYCLUSTER_OTHER } from '../../modules/local/mmseqs/easycluster'
+include { MMSEQS_EASYSEARCH                              } from '../../modules/local/mmseqs/easysearch'
+include { PARTITION_GENES                                } from '../../modules/local/partition_genes'
 
 //
 // One non-redundant gene catalog, built so that a final-MAG gene is only ever represented by
@@ -54,40 +54,40 @@ workflow GENE_CATALOG {
     //
     // MODULE: step 1, cluster the final-MAG genes among themselves (skipped without a final MAG)
     //
-    MMSEQS_CLUSTER_MAG(
+    MMSEQS_EASYCLUSTER_MAG(
         ch_mag_genes
             .filter { faas -> faas }
             .map { faas -> [ [ id: 'final_mag_genes' ], faas ] }
     )
-    ch_versions = ch_versions.mix(MMSEQS_CLUSTER_MAG.out.versions)
+    ch_versions = ch_versions.mix(MMSEQS_EASYCLUSTER_MAG.out.versions)
 
     //
     // MODULE: step 2, search every other gene against the final-MAG representatives
     //
-    MMSEQS_SEARCH(
+    MMSEQS_EASYSEARCH(
         ch_other_genes
             .filter { faas -> faas }
             .map { faas -> [ [ id: 'other_genes' ], faas ] },
-        MMSEQS_CLUSTER_MAG.out.rep_seq.map { _meta, rep_seq -> rep_seq }
+        MMSEQS_EASYCLUSTER_MAG.out.rep_seq.map { _meta, rep_seq -> rep_seq }
     )
-    ch_versions = ch_versions.mix(MMSEQS_SEARCH.out.versions)
+    ch_versions = ch_versions.mix(MMSEQS_EASYSEARCH.out.versions)
 
     //
     // MODULE: hand each matching gene over to its best final-MAG representative
     //
     ASSIGN_GENES(
         ch_other_genes.map { faas -> [ [ id: 'other_genes' ], faas ] },
-        MMSEQS_SEARCH.out.hits.map { _meta, hits -> hits }.ifEmpty([])
+        MMSEQS_EASYSEARCH.out.hits.map { _meta, hits -> hits }.ifEmpty([])
     )
     ch_versions = ch_versions.mix(ASSIGN_GENES.out.versions)
 
     //
     // MODULE: step 3, cluster the genes no final-MAG representative took
     //
-    MMSEQS_CLUSTER_OTHER(
+    MMSEQS_EASYCLUSTER_OTHER(
         ASSIGN_GENES.out.unassigned.filter { _meta, faa -> faa.size() > 0 }
     )
-    ch_versions = ch_versions.mix(MMSEQS_CLUSTER_OTHER.out.versions)
+    ch_versions = ch_versions.mix(MMSEQS_EASYCLUSTER_OTHER.out.versions)
 
     //
     // MODULE: merge the three steps into the catalog
@@ -105,9 +105,9 @@ workflow GENE_CATALOG {
 
     BUILD_CATALOG(
         ch_predictions,
-        MMSEQS_CLUSTER_MAG.out.clusters.map { _meta, clusters -> clusters }.ifEmpty([]),
+        MMSEQS_EASYCLUSTER_MAG.out.clusters.map { _meta, clusters -> clusters }.ifEmpty([]),
         ASSIGN_GENES.out.assigned.map { _meta, assigned -> assigned },
-        MMSEQS_CLUSTER_OTHER.out.clusters.map { _meta, clusters -> clusters }.ifEmpty([]),
+        MMSEQS_EASYCLUSTER_OTHER.out.clusters.map { _meta, clusters -> clusters }.ifEmpty([]),
         ch_contig2mag
             .map { _meta, contig2mag -> contig2mag }
             .toSortedList { a, b -> a.name <=> b.name },

@@ -1,4 +1,4 @@
-process MMSEQS_CLUSTER {
+process MMSEQS_EASYSEARCH {
 
     label 'process_high'
 
@@ -10,27 +10,27 @@ process MMSEQS_CLUSTER {
         'biocontainers/mmseqs2:18.8cc5c--hd6d6fdc_0' }"
 
     input:
-    tuple val(meta), path(proteins, stageAs: 'input/*')
+    tuple val(meta), path(queries, stageAs: 'query/*')
+    path(targets, stageAs: 'target/*')
 
     output:
-    tuple val(meta), path("*_cluster.tsv")  , emit: clusters
-    tuple val(meta), path("*_rep_seq.fasta"), emit: rep_seq
-    path "versions.yml"                     , emit: versions
+    tuple val(meta), path("*.m8"), emit: hits
+    path "versions.yml"          , emit: versions
 
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    // The member sequences are already in the inputs: `_all_seqs.fasta` is a copy of every
-    // input sequence, removed rather than left in the work directory
     """
-    mmseqs easy-cluster \\
-        input/* \\
-        ${prefix} \\
+    mmseqs easy-search \\
+        query/* \\
+        target/* \\
+        ${prefix}.m8 \\
         tmp \\
         --threads ${task.cpus} \\
+        --format-output query,target,fident,alnlen,qcov,tcov,evalue,bits \\
         ${args}
 
-    rm -rf tmp ${prefix}_all_seqs.fasta
+    rm -rf tmp
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

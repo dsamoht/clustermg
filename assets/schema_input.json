@@ -27,6 +27,11 @@
                 "type": "string",
                 "pattern": "^\\S+$",
                 "errorMessage": "The path to the CheckM2 quality report cannot contain spaces"
+            },
+            "samples": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._-]+(;[A-Za-z0-9._-]+)*$",
+                "errorMessage": "Samples must be the ';'-separated ids of the samples the assembly was built from (letters, digits, '.', '_' and '-')"
             }
         },
         "required": ["name", "assembly"],

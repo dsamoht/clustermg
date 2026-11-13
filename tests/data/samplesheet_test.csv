@@ -1,4 +1,5 @@
-name,assembly,bins,checkm2
-minigut1,assemblies/minigut1.fa,bins/minigut1,checkm2/minigut1.tsv
-minigut1_mut,assemblies/minigut1_mut.fa,bins/minigut1_mut,checkm2/minigut1_mut.tsv
-minigut2,assemblies/minigut2.fa.gz,,
+name,assembly,bins,checkm2,samples
+minigut1,assemblies/minigut1.fa,bins/minigut1,checkm2/minigut1.tsv,s1;s2
+minigut1_mut,assemblies/minigut1_mut.fa,bins/minigut1_mut,checkm2/minigut1_mut.tsv,s3
+minigut2,assemblies/minigut2.fa.gz,,,s1
+minigut1_frag,assemblies/minigut1_frag.fa.gz,,,s2

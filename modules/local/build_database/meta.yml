@@ -1,0 +1,89 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "build_database"
+description: Load every result of the run into one DuckDB database, tables for the facts and views for the sums
+keywords:
+  - database
+  - duckdb
+  - parquet
+tools:
+  - "duckdb":
+      description: In-process analytical SQL database, driven from a helper script shipped in bin/
+      homepage: https://duckdb.org
+      documentation: https://duckdb.org/docs
+      licence: ["MIT"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'clustermg' ]`
+    - assemblies:
+        type: file
+        description: Kind and samples of every assembly
+        pattern: "assemblies.tsv"
+  - contig_names:
+      type: file
+      description: Renamed and original name and length of every contig
+      pattern: "*.contig_names.tsv"
+  - contig2mag:
+      type: file
+      description: Renamed contig of every MAG, one table per assembly
+      pattern: "*.contig2mag.tsv"
+  - mags_summary:
+      type: file
+      description: Every input MAG
+      pattern: "mags_summary.tsv"
+  - gffs:
+      type: file
+      description: Predicted genes of every assembly
+      pattern: "*.gff"
+  - gene_clusters:
+      type: file
+      description: Representative of every gene
+      pattern: "gene_clusters.tsv"
+  - catalog_faa:
+      type: file
+      description: Proteins of the catalog
+      pattern: "gene_catalog.faa"
+  - catalog_fna:
+      type: file
+      description: Nucleotide sequences of the catalog
+      pattern: "gene_catalog.fna"
+  - counts:
+      type: file
+      description: Tables of AGGREGATE_COUNTS and LINK_CONTIGS, `[]` without read libraries
+      pattern: "*.tsv"
+output:
+  database:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'clustermg' ]`
+      - "clustermg.duckdb":
+          type: file
+          description: The database
+          pattern: "clustermg.duckdb"
+  parquet:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'clustermg' ]`
+      - "parquet":
+          type: file
+          description: Every table as Parquet, with schema.sql and load.sql
+          pattern: "parquet"
+  checks:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'clustermg' ]`
+      - "database_checks.tsv":
+          type: file
+          description: Rows of every table and broken links
+          pattern: "database_checks.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"

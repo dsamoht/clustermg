@@ -1,9 +1,9 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
-name: "mmseqs_search"
-description: Search proteins against a set of cluster representatives with MMseqs2 easy-search
+name: "mmseqs_easycluster"
+description: Cluster proteins with MMseqs2 easy-cluster
 keywords:
-  - search
+  - clustering
   - proteins
   - mmseqs2
 tools:
@@ -17,21 +17,26 @@ input:
   - - meta:
         type: map
         description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
-    - queries:
+    - proteins:
         type: file
-        description: Query proteins, one or several files
-  - targets:
-      type: file
-      description: Target proteins
+        description: Proteins in FASTA format, one or several files
 output:
-  hits:
+  clusters:
     - - meta:
           type: map
           description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
-      - "*.m8":
+      - "*_cluster.tsv":
           type: file
-          description: Hits as query, target, fident, alnlen, qcov, tcov, evalue and bits columns
-          pattern: "*.m8"
+          description: Representative and member of every clustered protein
+          pattern: "*_cluster.tsv"
+  rep_seq:
+    - - meta:
+          type: map
+          description: Groovy Map naming the run-wide step, e.g. `[ id:'mags' ]`
+      - "*_rep_seq.fasta":
+          type: file
+          description: Cluster representatives
+          pattern: "*_rep_seq.fasta"
   versions:
     - "versions.yml":
         type: file

@@ -149,7 +149,7 @@ def rename_assembly(name, assembly, contig_to_bin):
     seen = set()
     matched = set()
     with open(f"{name}.contigs.fa", "w") as contigs_out, open(f"{name}.contig_names.tsv", "w") as names_out:
-        names_out.write("contig\toriginal_contig\n")
+        names_out.write("contig\toriginal_contig\tlength\n")
         for contig, _header, seq in parse_fasta(assembly):
             if contig in seen:
                 sys.exit(f"error: contig name '{contig}' appears twice in assembly {assembly}")
@@ -161,7 +161,7 @@ def rename_assembly(name, assembly, contig_to_bin):
                     sys.exit(f"error: contig '{contig}' of MAG {contig_to_bin[contig][0]} differs from the same contig in assembly {assembly}")
                 matched.add(contig)
             write_record(contigs_out, f"{name}_{contig}", seq)
-            names_out.write(f"{name}_{contig}\t{contig}\n")
+            names_out.write(f"{name}_{contig}\t{contig}\t{len(seq)}\n")
     missing = [contig for contig in contig_to_bin if contig not in matched]
     if missing:
         shown = ", ".join(missing[:5]) + (f" and {len(missing) - 5} more" if len(missing) > 5 else "")

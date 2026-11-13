@@ -26,6 +26,17 @@
                     "help_text": "Columns `name,assembly,bins,checkm2`. `bins` is a directory of MAG FASTA files and `checkm2` the CheckM2 `quality_report.tsv` that covers them; leave both empty for an assembly that only contributes genes. A relative path is looked up in the launch directory, then next to the sample sheet. See docs/usage.md.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "reads": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_reads.json",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to the comma-separated sheet of read libraries to count: one row per library, each mapped once.",
+                    "help_text": "Columns `library,sample,molecule,platform,fastq_1,fastq_2,strandedness`. Each library is mapped once onto the contigs of every assembly: DNA is counted on contigs and MAGs, RNA (Illumina) on genes. Without it, the run stops after the gene catalog. See docs/usage.md.",
+                    "fa_icon": "fas fa-file-csv"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
@@ -47,6 +58,15 @@
                     "maximum": 1,
                     "description": "Average nucleotide identity above which dRep puts two MAGs in the same cluster (dRep `-sa`).",
                     "help_text": "0.95 is the usual species boundary: one MAG per species is kept. 0.99 keeps co-occurring strains of a species apart.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "mag_ani_fine": {
+                    "type": "number",
+                    "default": 0.98,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Average nucleotide identity of a second, finer grouping of the dereplicated MAGs, cut from dRep's own tree.",
+                    "help_text": "Must be at least `--mag_ani`. 0.98 is where dRep and inStrain consider two genomes distinct for read mapping. The groups are nested in dRep's clusters and reported next to them; the final MAGs do not change.",
                     "fa_icon": "fas fa-percent"
                 },
                 "mag_min_completeness": {
@@ -107,6 +127,50 @@
                     "description": "Which sequence the coverage applies to: 0 both, 1 the member, 2 the representative (MMseqs2 `--cov-mode` of the clustering).",
                     "help_text": "With 1, a gene must be covered by its representative for at least `--gene_coverage` of its length, so fragments join the cluster of a full-length gene. The search of step 2 mirrors the mode, so that it keeps the same meaning there.",
                     "fa_icon": "fas fa-arrows-left-right"
+                }
+            }
+        },
+        "read_mapping_options": {
+            "title": "Read mapping options",
+            "type": "object",
+            "fa_icon": "fas fa-align-left",
+            "description": "Counting the read libraries of `--reads`, each mapped once onto every assembly: Illumina reads with bwa-mem2, long reads with minimap2.",
+            "properties": {
+                "ribo_database_manifest": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "default": "${projectDir}/assets/rrna-db-defaults.txt",
+                    "description": "Text file listing the rRNA databases SortMeRNA filters the RNA libraries against, one FASTA path or URL per line.",
+                    "help_text": "By default SortMeRNA's own databases (bacterial, archaeal and eukaryotic 16S/18S, 23S/28S, 5S and 5.8S), downloaded when the run starts. A relative path is looked up next to the manifest.",
+                    "fa_icon": "fas fa-database"
+                },
+                "skip_rrna_removal": {
+                    "type": "boolean",
+                    "description": "Map the RNA libraries as they are, without removing their rRNA reads first.",
+                    "help_text": "For reads already filtered. Otherwise rRNA reads that land on a predicted gene would be counted as its expression.",
+                    "fa_icon": "fas fa-forward"
+                },
+                "link_min_identity": {
+                    "type": "number",
+                    "default": 0.98,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Minimum identity for a stretch of an unbinned or low-quality contig to count as part of the MAG it aligns to.",
+                    "help_text": "The reads that land on such a stretch are added to that MAG, so that a genome's reads are not lost to a copy of it no bin holds. Identity is the matching bases over the alignment length, gaps included. 0.98 is the ANI of the fine MAG groups (`--mag_ani_fine`); lower, more stretches of other strains, and of sequences several genomes share (plasmids, transposons, rRNA operons), link as well.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "link_min_length": {
+                    "type": "integer",
+                    "default": 500,
+                    "minimum": 1,
+                    "description": "Minimum length (bp) of such a stretch.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "save_bams": {
+                    "type": "boolean",
+                    "description": "Publish the BAM of every library.",
+                    "fa_icon": "fas fa-save"
                 }
             }
         },
@@ -233,6 +297,9 @@
         },
         {
             "$ref": "#/$defs/gene_catalog_options"
+        },
+        {
+            "$ref": "#/$defs/read_mapping_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

@@ -1,0 +1,2 @@
+library,sample,molecule,platform,fastq_1,fastq_2,strandedness
+s1_rna,s1,rna,ont,reads/s1_dna.fq.gz,,forward

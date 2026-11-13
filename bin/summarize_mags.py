@@ -7,6 +7,9 @@
 
 dRep only runs when at least two MAGs pass the filter; without its tables, every MAG that
 passed is final.
+
+With mag_levels.tsv (written by mag_levels.py), every MAG that passed also gets its finer group
+and that group's representative; a MAG dereplicated alone is its own.
 """
 
 import argparse
@@ -22,13 +25,14 @@ def parse_args():
     parser.add_argument("--cdb", help="dRep data_tables/Cdb.csv (cluster of every genome).")
     parser.add_argument("--sdb", help="dRep data_tables/Sdb.csv (score of every genome).")
     parser.add_argument("--wdb", help="dRep data_tables/Wdb.csv (winner of every cluster).")
+    parser.add_argument("--levels", help="mag_levels.tsv written by mag_levels.py (finer groups).")
     parser.add_argument("--contig2mag", nargs="+", required=True, help="contig2mag.tsv tables written by prepare_assembly.py.")
     parser.add_argument("--mags", nargs="*", default=[], help="renamed MAG FASTA files.")
     parser.add_argument("--final-dir", default="final_mags", help="output directory for the final MAGs.")
     args = parser.parse_args()
-    drep_tables = [args.cdb, args.sdb, args.wdb]
+    drep_tables = [args.cdb, args.sdb, args.wdb, args.levels]
     if any(drep_tables) and not all(drep_tables):
-        parser.error("--cdb, --sdb and --wdb go together")
+        parser.error("--cdb, --sdb, --wdb and --levels go together")
     return args
 
 
@@ -49,7 +53,7 @@ def main():
         rows = list(reader)
     passing = [row["mag_id"] for row in rows if row["passes_filter"] == "yes"]
 
-    cluster, score, representative = {}, {}, {}
+    cluster, score, representative, fine_cluster, fine_representative = {}, {}, {}, {}, {}
     if args.cdb:
         cluster = {genome_id(r["genome"]): r["secondary_cluster"] for r in read_csv(args.cdb)}
         score = {genome_id(r["genome"]): r["score"] for r in read_csv(args.sdb)}
@@ -57,13 +61,21 @@ def main():
         if set(cluster) != set(passing):
             sys.exit(f"error: dRep clustered {sorted(cluster)}, but the MAGs passing the filter are {sorted(passing)}")
         representative = {mag: winner_of[c] for mag, c in cluster.items()}
+        with open(args.levels) as handle:
+            levels = {r["mag_id"]: r for r in csv.DictReader(handle, delimiter="\t")}
+        if set(levels) != set(cluster):
+            sys.exit(f"error: mag_levels.tsv groups {sorted(levels)}, but dRep clustered {sorted(cluster)}")
+        fine_cluster = {mag: r["fine_cluster"] for mag, r in levels.items()}
+        fine_representative = {mag: r["fine_representative"] for mag, r in levels.items()}
     elif len(passing) > 1:
         sys.exit(f"error: {len(passing)} MAGs passed the filter but no dRep table was given")
     else:
         representative = {mag: mag for mag in passing}
+        fine_representative = dict(representative)
 
     columns = ["mag_id", "assembly", "original_bin", "n_contigs", "genome_size", "n50", "completeness",
-               "contamination", "status", "secondary_cluster", "representative", "drep_score"]
+               "contamination", "status", "secondary_cluster", "representative", "drep_score",
+               "fine_cluster", "fine_representative"]
     final = set()
     with open("mags_summary.tsv", "w") as out:
         out.write("\t".join(columns) + "\n")
@@ -79,7 +91,9 @@ def main():
             row.update(status=status,
                        secondary_cluster=cluster.get(mag, ""),
                        representative=representative.get(mag, ""),
-                       drep_score=score.get(mag, ""))
+                       drep_score=score.get(mag, ""),
+                       fine_cluster=fine_cluster.get(mag, ""),
+                       fine_representative=fine_representative.get(mag, ""))
             out.write("\t".join(row[c] for c in columns) + "\n")
 
     contigs_of = {}
