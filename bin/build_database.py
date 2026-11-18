@@ -33,7 +33,8 @@ CREATE TABLE assembly_sample (
 CREATE TABLE library (
     library_id VARCHAR PRIMARY KEY, sample_id VARCHAR REFERENCES sample (sample_id), molecule VARCHAR,
     platform VARCHAR, layout VARCHAR, strandedness VARCHAR, input_reads BIGINT, rrna_reads BIGINT,
-    primary_reads BIGINT, primary_mapped BIGINT, assigned DOUBLE, unassigned_no_features DOUBLE);
+    primary_reads BIGINT, primary_mapped BIGINT, library_bases BIGINT, assigned DOUBLE,
+    unassigned_no_features DOUBLE);
 CREATE TABLE mag (
     mag_id VARCHAR PRIMARY KEY, assembly_id VARCHAR REFERENCES assembly (assembly_id), original_bin VARCHAR,
     n_contigs INTEGER, genome_size BIGINT, n50 BIGINT, completeness DOUBLE, contamination DOUBLE,
@@ -59,6 +60,9 @@ CREATE TABLE link_dna_counts (
 CREATE TABLE mag_dna_profile (
     mag_id VARCHAR REFERENCES mag (mag_id), library_id VARCHAR REFERENCES library (library_id),
     reads BIGINT, mean DOUBLE, trimmed_mean DOUBLE, covered_fraction DOUBLE, PRIMARY KEY (mag_id, library_id));
+CREATE TABLE contig_dna_profile (
+    contig_id VARCHAR REFERENCES contig (contig_id), library_id VARCHAR REFERENCES library (library_id),
+    mean DOUBLE, trimmed_mean DOUBLE, PRIMARY KEY (contig_id, library_id));
 CREATE TABLE gene_rna_counts (
     gene_id VARCHAR REFERENCES gene (gene_id), library_id VARCHAR REFERENCES library (library_id),
     reads DOUBLE, PRIMARY KEY (gene_id, library_id));
@@ -127,6 +131,15 @@ CREATE VIEW gene_dna_depth AS
     SELECT g.representative AS gene_id, d.library_id, SUM(d.aligned_bases / c.length) AS depth
     FROM gene g JOIN contig c USING (contig_id) JOIN contig_dna_counts d USING (contig_id)
     GROUP BY g.representative, d.library_id;
+
+-- DNA abundance of every catalog gene: each copy takes the CoverM mean and trimmed mean depth of
+-- its contig, over the gigabases of the library; the copies add up
+CREATE VIEW gene_dna_abundance AS
+    SELECT g.representative AS gene_id, p.library_id,
+           SUM(p.mean / (l.library_bases / 1e9)) AS mean_per_gbp,
+           SUM(p.trimmed_mean / (l.library_bases / 1e9)) AS trimmed_mean_per_gbp
+    FROM gene g JOIN contig_dna_profile p USING (contig_id) JOIN library l USING (library_id)
+    GROUP BY g.representative, p.library_id;
 
 -- Expression over gene copy number, for an RNA and a DNA library of the same sample
 CREATE VIEW expression_ratio AS
@@ -266,6 +279,7 @@ def main():
         load(con, "library", f"{counts}/libraries.tsv",
              "library, sample, molecule, platform, layout, NULLIF(strandedness, ''), input_reads::BIGINT, "
              "NULLIF(rrna_reads, '')::BIGINT, primary_reads::BIGINT, primary_mapped::BIGINT, "
+             "NULLIF(library_bases, '')::BIGINT, "
              "NULLIF(assigned, '')::DOUBLE, NULLIF(unassigned_no_features, '')::DOUBLE")
     load(con, "mag", args.mags_summary,
          "mag_id, assembly, original_bin, n_contigs::INTEGER, genome_size::BIGINT, n50::BIGINT, "
@@ -287,6 +301,8 @@ def main():
              "link_id, library, reads::BIGINT, aligned_bases::BIGINT, covered_bases::BIGINT")
         load(con, "mag_dna_profile", f"{counts}/mag_dna_profile.tsv",
              "mag_id, library, reads::BIGINT, mean::DOUBLE, trimmed_mean::DOUBLE, covered_fraction::DOUBLE")
+        load(con, "contig_dna_profile", f"{counts}/contig_dna_profile.tsv",
+             "contig, library, mean::DOUBLE, trimmed_mean::DOUBLE")
         load(con, "gene_rna_counts", f"{counts}/gene_rna_counts.tsv", "gene, library, reads::DOUBLE")
     con.execute(VIEWS)
 

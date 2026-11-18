@@ -11,9 +11,11 @@ process AGGREGATE_COUNTS {
     tuple val(meta), path(library_sheet)
     path(flagstats, stageAs: 'flagstat/*')
     path(bedcovs, stageAs: 'bedcov/*')
+    path(stats, stageAs: 'stats/*')
+    path(coverm_contig, stageAs: 'coverm_contig/*')
     path(featurecounts, stageAs: 'featurecounts/*')
     path(sortmerna_logs, stageAs: 'sortmerna/*')
-    path(coverm, stageAs: 'coverm/*')
+    path(coverm, stageAs: 'coverm_genome/*')
     path(contig_links)
     path(contig2mag, stageAs: 'contig2mag/*')
     path(mags_summary)
@@ -25,6 +27,8 @@ process AGGREGATE_COUNTS {
     tuple val(meta), path("contig_dna_counts.tsv"), emit: contig_dna_counts
     tuple val(meta), path("link_dna_counts.tsv")  , emit: link_dna_counts
     tuple val(meta), path("mag_dna_profile.tsv")  , emit: mag_dna_profile
+    tuple val(meta), path("contig_dna_profile.tsv"), emit: contig_dna_profile
+    tuple val(meta), path("gene_dna_abundance.tsv"), emit: gene_dna_abundance
     tuple val(meta), path("final_mag_dna.tsv")    , emit: final_mag_dna
     tuple val(meta), path("fine_group_dna.tsv")   , emit: fine_group_dna
     tuple val(meta), path("gene_rna_counts.tsv")  , emit: gene_rna_counts
@@ -36,6 +40,8 @@ process AGGREGATE_COUNTS {
     // either list is empty when the run has no library of that molecule; so is `coverm`
     // without a MAG
     def bedcov_args = bedcovs ? '--bedcov bedcov/*' : ''
+    def stats_args = stats ? '--stats stats/*' : ''
+    def coverm_contig_args = coverm_contig ? "--coverm-contig ${coverm_contig}" : ''
     def featurecounts_args = featurecounts ? '--featurecounts featurecounts/*.featureCounts.tsv' : ''
     def coverm_args = coverm ? "--coverm ${coverm}" : ''
     // and without rRNA removal, there is no SortMeRNA log
@@ -45,6 +51,8 @@ process AGGREGATE_COUNTS {
         --libraries ${library_sheet} \\
         --flagstat flagstat/* \\
         ${bedcov_args} \\
+        ${stats_args} \\
+        ${coverm_contig_args} \\
         ${featurecounts_args} \\
         ${coverm_args} \\
         ${sortmerna_args} \\

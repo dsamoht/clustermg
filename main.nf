@@ -189,9 +189,9 @@ workflow CLUSTERMG {
     contig2mag       = PREPARE_ASSEMBLY.out.contig2mag
     contig_links     = READ_MAPPING.out.contig_links
     libraries        = READ_MAPPING.out.libraries
-    contig_counts    = READ_MAPPING.out.contig_dna_counts.mix(READ_MAPPING.out.link_dna_counts)
+    contig_counts    = READ_MAPPING.out.contig_dna_counts.mix(READ_MAPPING.out.link_dna_counts, READ_MAPPING.out.contig_dna_profile)
     mag_counts       = READ_MAPPING.out.mag_dna_profile.mix(READ_MAPPING.out.final_mag_dna, READ_MAPPING.out.fine_group_dna)
-    gene_counts      = READ_MAPPING.out.gene_rna_counts.mix(READ_MAPPING.out.gene_expression)
+    gene_counts      = READ_MAPPING.out.gene_rna_counts.mix(READ_MAPPING.out.gene_expression, READ_MAPPING.out.gene_dna_abundance)
     bams             = params.save_bams ? READ_MAPPING.out.bams : channel.empty()
     database         = BUILD_DATABASE.out.database.mix(BUILD_DATABASE.out.parquet, BUILD_DATABASE.out.checks)
 }

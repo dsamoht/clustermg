@@ -63,6 +63,8 @@ flowchart LR
             SAMTOOLS_FLAGSTAT["SAMTOOLS_FLAGSTAT<br/>reads"]
             SAMTOOLS_BEDCOV["SAMTOOLS_BEDCOV<br/>DNA on contigs"]
             COVERM_GENOME["COVERM_GENOME<br/>DNA on MAGs"]
+            COVERM_CONTIG["COVERM_CONTIG<br/>DNA on contigs → genes"]
+            SAMTOOLS_STATS["SAMTOOLS_STATS<br/>DNA library bases"]
             SUBREAD_FEATURECOUNTS["SUBREAD_FEATURECOUNTS<br/>RNA on genes"]
         end
         PREPARE_REFERENCE --> map

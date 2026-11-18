@@ -73,6 +73,10 @@ Every path below is relative to
     - `gene_expression.tsv`: catalog gene × RNA library: `representative, library, reads, tpm`, the
       fragments of every copy of the gene added up, TPM on the representative's length. Rows with
       no fragment are left out.
+    - `gene_dna_abundance.tsv`: catalog gene × DNA library: `representative, library,
+      mean_per_gbp, trimmed_mean_per_gbp`. Every copy of the gene takes the CoverM mean and
+      trimmed mean depth of its contig, divided by the gigabases of the library
+      (`library_bases / 1e9`); the copies add up. Rows with no depth are left out.
     - `gene_rna_counts.tsv`: every gene copy × RNA library: `gene, library, reads`, one count per
       fragment split between the genes it overlaps. Rows with no fragment are left out.
   - `gene_catalog_stats.tsv`: number of genes, final-MAG genes, representatives, final-MAG
@@ -118,10 +122,14 @@ can have genes in `gene_clusters.tsv` that are not in the catalog files. See the
   - `libraries.tsv`: `library, sample, molecule, platform, layout, strandedness`, then the reads of
     the library, mates counted separately: `input_reads` (in its FastQ files), `rrna_reads` (removed
     by SortMeRNA before mapping, RNA only), `primary_reads` and `primary_mapped` (samtools
-    flagstat); and for RNA, `assigned` and `unassigned_no_features` (featureCounts fragments;
+    flagstat); for DNA, `library_bases` (the bases of every read that reached the mapper, mapped
+    or not, samtools stats `total length`); and for RNA, `assigned` and `unassigned_no_features` (featureCounts fragments;
     `unassigned_no_features` is mostly the tRNA, the rRNA left and the intergenic).
   - `contig_dna_counts.tsv`: every contig × DNA library: `contig, library, reads, aligned_bases,
     covered_bases`. Rows with nothing are left out.
+  - `contig_dna_profile.tsv`: every contig × DNA library: `contig, library, mean, trimmed_mean`,
+    CoverM depth with its defaults (75 bp left out at each end; the trimmed mean drops the 5% least
+    and most covered positions). Rows with no depth are left out.
   - `contig_links.tsv`: `link_id, contig, start, end, mag_id, identity, aligned_length`: the
     stretches of unbinned or low-quality contigs counted as part of a MAG (`start` 0-based, `end`
     exclusive; `link_id` is `contig:start+1-end`).

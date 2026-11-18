@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "coverm_contig"
+description: Mean and trimmed mean depth of every contig in every DNA library
+keywords:
+  - coverage
+  - contig
+  - abundance
+tools:
+  - "coverm":
+      description: Read coverage calculator for metagenomics
+      homepage: https://github.com/wwood/CoverM
+      documentation: https://wwood.github.io/CoverM/coverm-contig.html
+      licence: ["GPL-3.0-or-later"]
+      identifier: biotools:coverm
+input:
+  - - meta:
+        type: map
+        description: Groovy Map, e.g. `[ id:'contigs' ]`
+    - bams:
+        type: file
+        description: Sorted alignments of every DNA library, named `<library>.bam`
+        pattern: "*.bam"
+    - bais:
+        type: file
+        description: BAM indexes
+        pattern: "*.bam.bai"
+output:
+  stats:
+    - - meta:
+          type: map
+          description: Groovy Map, e.g. `[ id:'contigs' ]`
+      - "coverm_contig.tsv":
+          type: file
+          description: Mean and trimmed mean depth of every contig, one pair of columns per library
+          pattern: "coverm_contig.tsv"
+  versions:
+    - "versions.yml":
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+authors:
+  - "@dsamoht"
+maintainers:
+  - "@dsamoht"
