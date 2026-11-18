@@ -578,13 +578,19 @@ def aggregate_inputs(tmp_path, rna_assigned=4):
           "A_c1_1\tA_c1\t1\t100\t+\t100\t1.33\nU1_1\tU1\t1\t300\t+\t300\t1.33\nU1_2\tU1\t401\t900\t-\t500\t1.33\n")
     write(tmp_path / "r1.featureCounts.tsv.summary",
           f"Status\tr1.bam\nAssigned\t{rna_assigned}\nUnassigned_NoFeatures\t6\n")
+    # d1 brought 2 Gbp to the mapper; CoverM depth of the contigs, A2_c1 not covered
+    write(tmp_path / "d1.stats.txt", "# samtools stats\nSN\traw total sequences:\t100\n"
+          "SN\ttotal length:\t2000000000\t# ignores clipping\n")
+    write(tmp_path / "coverm_contig.tsv", "Contig\td1 Mean\td1 Trimmed Mean\n"
+          "A_c1\t4\t3\nA2_c1\t0\t0\nU1\t2\t1.6\nE\t0\t0\n")
     write(tmp_path / "coverm.tsv", "Genome\td1 Read Count\td1 Mean\td1 Trimmed Mean\td1 Covered Fraction\n"
           "A\t5\t5.0\t4.5\t0.8\nA2\t3\t1.5\t1.2\t0.3\n")
     # SortMeRNA was given 130 reads, 30 of them rRNA: the 100 of the flagstat reached the mapper
     write(tmp_path / "r1.sortmerna.log", " Results:\n    Total reads = 130\n"
           "    Total reads passing E-value threshold = 30 (23.08)\n")
     return run("aggregate_counts.py", "--libraries", "libraries.tsv", "--flagstat", "d1.flagstat.tsv", "r1.flagstat.tsv",
-               "--bedcov", "d1.bedcov.tsv", "--featurecounts", "r1.featureCounts.tsv", "--coverm", "coverm.tsv",
+               "--bedcov", "d1.bedcov.tsv", "--stats", "d1.stats.txt", "--coverm-contig", "coverm_contig.tsv",
+               "--featurecounts", "r1.featureCounts.tsv", "--coverm", "coverm.tsv",
                "--sortmerna-log", "r1.sortmerna.log",
                "--contig-links", "contig_links.tsv", "--contig2mag", "S.contig2mag.tsv",
                "--mags-summary", "mags_summary.tsv", "--gene-clusters", "gene_clusters.tsv",
@@ -604,6 +610,10 @@ def test_counts_add_up_through_the_links(tmp_path):
     assert {r["mag_id"]: (r["reads"], r["mean_depth"]) for r in read_tsv(tmp_path / "fine_group_dna.tsv")} == {
         "A": ("5", "5"), "A2": ("5", "2.5")}
     assert read_tsv(tmp_path / "mag_dna_profile.tsv")[0]["trimmed_mean"] == "4.5"
+    # DNA per gene: A_c1_1 has copies on A_c1 (4, 3) and U1 (2, 1.6), U1_2 one on U1; over 2 Gbp
+    assert [r["contig"] for r in read_tsv(tmp_path / "contig_dna_profile.tsv")] == ["A_c1", "U1"]
+    assert {r["representative"]: (r["mean_per_gbp"], r["trimmed_mean_per_gbp"])
+            for r in read_tsv(tmp_path / "gene_dna_abundance.tsv")} == {"A_c1_1": ("3", "2.3"), "U1_2": ("1", "0.8")}
     # RNA: U1_1 is a copy of A_c1_1, so the cluster has 3 fragments
     expression = {r["representative"]: r for r in read_tsv(tmp_path / "gene_expression.tsv")}
     assert expression["A_c1_1"]["reads"] == "2.66"
@@ -613,6 +623,7 @@ def test_counts_add_up_through_the_links(tmp_path):
     assert libraries["d1"]["primary_mapped"] == "90"
     assert (libraries["r1"]["input_reads"], libraries["r1"]["rrna_reads"]) == ("130", "30")
     assert (libraries["d1"]["input_reads"], libraries["d1"]["rrna_reads"]) == ("100", "")
+    assert (libraries["d1"]["library_bases"], libraries["r1"]["library_bases"]) == ("2000000000", "")
 
 
 def test_gene_counts_that_disagree_with_featurecounts_are_refused(tmp_path):
@@ -629,7 +640,7 @@ def test_database_holds_every_table_and_derives_the_rest(tmp_path):
     counts = tmp_path / "counts"
     counts.mkdir()
     for name in ("libraries", "contig_links", "contig_dna_counts", "link_dna_counts", "mag_dna_profile",
-                 "gene_rna_counts"):
+                 "contig_dna_profile", "gene_rna_counts"):
         (counts / f"{name}.tsv").write_text((tmp_path / f"{name}.tsv").read_text())
     write(tmp_path / "assemblies.tsv", "assembly\tkind\tsamples\tsource\nS1\tsingle\ts1\ta.fa\nS2\tco\ts1;s2\tb.fa\n")
     write(tmp_path / "S1.contig_names.tsv", "contig\toriginal_contig\tlength\nA_c1\tc1\t100\nU1\tu1\t1000\nE\te\t50\n")
@@ -666,4 +677,7 @@ def test_database_holds_every_table_and_derives_the_rest(tmp_path):
     # U1_1 sits in the stretch of U1 linked to A2, so its fragments count for final MAG A
     assert [(m, round(r, 2)) for m, r in con.execute("SELECT mag_id, reads FROM mag_expression").fetchall()] == [("A", 2.66)]
     assert con.execute("SELECT start, stop FROM contig_link").fetchall() == [(1, 400)]
+    assert {g: (round(m, 6), round(t, 6)) for g, m, t in con.execute(
+        "SELECT gene_id, mean_per_gbp, trimmed_mean_per_gbp FROM gene_dna_abundance").fetchall()} == {
+        "A_c1_1": (3.0, 2.3), "U1_2": (1.0, 0.8)}
     assert (tmp_path / "parquet" / "schema.sql").exists()

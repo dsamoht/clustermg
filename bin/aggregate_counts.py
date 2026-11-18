@@ -9,6 +9,7 @@ Raw counts, one row per copy and library, only rows that are not 0:
     contig_dna_counts.tsv  contig, library: reads, aligned_bases, covered_bases
     link_dna_counts.tsv    link_id, library: the same, on the stretches link_contigs.py tied to a MAG
     mag_dna_profile.tsv    mag_id, library: CoverM on the MAG's own contigs, every MAG and library
+    contig_dna_profile.tsv contig, library: CoverM mean and trimmed mean depth
     gene_rna_counts.tsv    gene, library: fragments, split between the genes a fragment overlaps
 
 The main sums, for the users who do not query the database:
@@ -18,10 +19,13 @@ The main sums, for the users who do not query the database:
     fine_group_dna.tsv     the same for the finer groups, named after their representative
     gene_expression.tsv    representative x RNA library: its copies added up, and TPM on the
                            representative's length
+    gene_dna_abundance.tsv representative x DNA library: every copy takes the mean and trimmed mean
+                           depth of its contig, over the gigabases of the library; the copies add up
     libraries.tsv          every library with its read totals: the reads it came with and, for RNA,
                            the rRNA reads SortMeRNA removed before mapping (both counting mates
                            apart), what was mapped (samtools flagstat) and what featureCounts
-                           assigned (fragments)
+                           assigned (fragments); for DNA, the bases that reached the mapper
+                           (samtools stats)
 """
 
 import argparse
@@ -35,6 +39,8 @@ def parse_args():
     parser.add_argument("--libraries", required=True, help="library, sample, molecule, platform, layout, strandedness.")
     parser.add_argument("--flagstat", nargs="+", required=True, help="samtools flagstat -O tsv, <library>.flagstat.tsv.")
     parser.add_argument("--bedcov", nargs="*", default=[], help="samtools bedcov -c -j -d 1 of the DNA libraries, <library>.bedcov.tsv.")
+    parser.add_argument("--stats", nargs="*", default=[], help="samtools stats of the DNA libraries, <library>.stats.txt.")
+    parser.add_argument("--coverm-contig", help="coverm contig table (mean, trimmed mean) of the DNA libraries.")
     parser.add_argument("--featurecounts", nargs="*", default=[], help="featureCounts tables of the RNA libraries, <library>.featureCounts.tsv.")
     parser.add_argument("--coverm", help="coverm genome table of the DNA libraries.")
     parser.add_argument("--sortmerna-log", nargs="*", default=[], help="SortMeRNA logs of the RNA libraries, <library>.sortmerna.log.")
@@ -48,6 +54,11 @@ def parse_args():
 
 def fmt(value):
     return f"{value:.4f}".rstrip("0").rstrip(".")
+
+
+def fmt_sig(value):
+    """six significant digits: a depth over the gigabases of a library can be far below 1"""
+    return f"{value:.6g}"
 
 
 def by_library(paths, suffix):
@@ -66,6 +77,15 @@ def read_flagstat(path):
             passed, _failed, what = line.rstrip("\n").split("\t")
             values[what] = passed
     return values.get("primary", ""), values.get("primary mapped", "")
+
+
+def read_library_bases(path):
+    """the bases of every primary record, mapped or not: what the library brought to the mapper"""
+    with open(path) as handle:
+        for line in handle:
+            if line.startswith("SN\ttotal length:"):
+                return int(line.split("\t")[2])
+    sys.exit(f"error: {path} has no 'total length' line")
 
 
 def read_sortmerna_total(path):
@@ -88,7 +108,7 @@ COVERM_METHODS = [(" Read Count", "reads"), (" Trimmed Mean", "trimmed_mean"),
 
 
 def read_coverm(path, libraries):
-    """(mag, library) -> {reads, mean, trimmed_mean, covered_fraction}"""
+    """(mag or contig, library) -> {reads, mean, trimmed_mean, covered_fraction}, the methods it has"""
     profile = {}
     with open(path) as handle:
         reader = csv.reader(handle, delimiter="\t")
@@ -116,11 +136,13 @@ def main():
     rna = sorted(lib for lib, row in libraries.items() if row["molecule"] == "rna")
     flagstat = by_library(args.flagstat, ".flagstat.tsv")
     bedcov = by_library(args.bedcov, ".bedcov.tsv")
+    stats = by_library(args.stats, ".stats.txt")
     featurecounts = by_library(args.featurecounts, ".featureCounts.tsv")
     sortmerna = by_library(args.sortmerna_log, ".sortmerna.log")
     if sortmerna and sorted(sortmerna) != rna:
         sys.exit(f"error: the SortMeRNA logs are for libraries {sorted(sortmerna)}, expected {rna}")
     for kind, files, expected in [("flagstat", flagstat, sorted(libraries)), ("bedcov", bedcov, dna),
+                                  ("samtools stats", stats, dna),
                                   ("featureCounts", featurecounts, rna)]:
         if sorted(files) != expected:
             sys.exit(f"error: the {kind} tables are for libraries {sorted(files)}, expected {expected}")
@@ -135,6 +157,7 @@ def main():
 
     # DNA: contigs and linked stretches, then every passing MAG's own share
     member_counts = {}  # (passing mag, library) -> [reads, aligned bases]
+    contigs = set()
     with open("contig_dna_counts.tsv", "w") as contigs_out, open("link_dna_counts.tsv", "w") as links_out:
         contigs_out.write("contig\tlibrary\treads\taligned_bases\tcovered_bases\n")
         links_out.write("link_id\tlibrary\treads\taligned_bases\tcovered_bases\n")
@@ -145,6 +168,7 @@ def main():
                     contig, name = fields[0], fields[3]
                     bases, covered, reads = int(fields[4]), int(fields[5]), int(fields[6])
                     if name == "contig":
+                        contigs.add(contig)
                         mag = mag_of.get(contig) if mag_of.get(contig) in passing else None
                         if reads or bases:
                             contigs_out.write(f"{contig}\t{library}\t{reads}\t{bases}\t{covered}\n")
@@ -185,9 +209,43 @@ def main():
             out.write("\t".join([mag, library, values["reads"], values["mean"], values["trimmed_mean"],
                                  values["covered_fraction"]]) + "\n")
 
-    # RNA: every gene copy, then its cluster's representative
     representative = {row["member"]: row["representative"] for row in read_tsv(args.gene_clusters)}
-    length = {row["GeneID"]: int(row["End"]) - int(row["Start"]) + 1 for row in read_tsv(args.saf)}
+    saf = read_tsv(args.saf)
+    length = {row["GeneID"]: int(row["End"]) - int(row["Start"]) + 1 for row in saf}
+
+    # DNA per gene: every copy takes the depth of its contig, over the gigabases of the library;
+    # each read sits on one copy only, so the copies of a catalog gene add up
+    library_bases = {library: read_library_bases(stats[library]) for library in dna}
+    contig_profile = read_coverm(args.coverm_contig, set(dna)) if args.coverm_contig else {}
+    if dna and not args.coverm_contig:
+        sys.exit("error: DNA libraries but no coverm contig table")
+    by_contig = {}  # contig -> [(library, mean, trimmed mean)], the libraries that cover it
+    with open("contig_dna_profile.tsv", "w") as out:
+        out.write("contig\tlibrary\tmean\ttrimmed_mean\n")
+        for (contig, library), values in sorted(contig_profile.items()):
+            if contig not in contigs:
+                sys.exit(f"error: CoverM profiled '{contig}', which is in no bedcov table")
+            mean, trimmed = float(values["mean"]), float(values["trimmed_mean"])
+            if not (mean or trimmed):
+                continue
+            out.write(f"{contig}\t{library}\t{values['mean']}\t{values['trimmed_mean']}\n")
+            by_contig.setdefault(contig, []).append((library, mean, trimmed))
+    abundance = {}  # (representative, library) -> [mean, trimmed mean], per Gbp
+    for row in saf:
+        gene = row["GeneID"]
+        if gene not in representative:
+            sys.exit(f"error: gene '{gene}' of the SAF is in no cluster of gene_clusters.tsv")
+        for library, mean, trimmed in by_contig.get(row["Chr"], ()):
+            gbp = library_bases[library] / 1e9
+            total = abundance.setdefault((representative[gene], library), [0.0, 0.0])
+            total[0] += mean / gbp
+            total[1] += trimmed / gbp
+    with open("gene_dna_abundance.tsv", "w") as out:
+        out.write("representative\tlibrary\tmean_per_gbp\ttrimmed_mean_per_gbp\n")
+        for (rep, library), (mean, trimmed) in sorted(abundance.items()):
+            out.write(f"{rep}\t{library}\t{fmt_sig(mean)}\t{fmt_sig(trimmed)}\n")
+
+    # RNA: every gene copy, then its cluster's representative
     assigned = {}
     expression = {}  # library -> representative -> fragments
     with open("gene_rna_counts.tsv", "w") as out:
@@ -230,7 +288,7 @@ def main():
 
     with open("libraries.tsv", "w") as out:
         out.write("library\tsample\tmolecule\tplatform\tlayout\tstrandedness\tinput_reads\trrna_reads\t"
-                  "primary_reads\tprimary_mapped\tassigned\tunassigned_no_features\n")
+                  "primary_reads\tprimary_mapped\tlibrary_bases\tassigned\tunassigned_no_features\n")
         for library in sorted(libraries):
             row = libraries[library]
             reads, mapped = read_flagstat(flagstat[library])
@@ -244,7 +302,8 @@ def main():
             summary = assigned.get(library, {})
             counted = [fmt(summary[k]) if k in summary else "" for k in ("Assigned", "Unassigned_NoFeatures")]
             out.write("\t".join([library, row["sample"], row["molecule"], row["platform"], row["layout"],
-                                 row["strandedness"], input_reads, rrna, reads, mapped, *counted]) + "\n")
+                                 row["strandedness"], input_reads, rrna, reads, mapped,
+                                 str(library_bases.get(library, "")), *counted]) + "\n")
 
 
 if __name__ == "__main__":

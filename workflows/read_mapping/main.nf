@@ -3,6 +3,7 @@
 include { AGGREGATE_COUNTS                         } from '../../modules/local/aggregate_counts'
 include { BWAMEM2_INDEX                            } from '../../modules/local/bwamem2/index'
 include { BWAMEM2_MEM                              } from '../../modules/local/bwamem2/mem'
+include { COVERM_CONTIG                            } from '../../modules/local/coverm/contig'
 include { COVERM_GENOME                            } from '../../modules/local/coverm/genome'
 include { LINK_CONTIGS                             } from '../../modules/local/link_contigs'
 include { MINIMAP2_ALIGN                           } from '../../modules/local/minimap2/align'
@@ -11,6 +12,7 @@ include { MINIMAP2_INDEX                           } from '../../modules/local/m
 include { PREPARE_REFERENCE                        } from '../../modules/local/prepare_reference'
 include { SAMTOOLS_BEDCOV                          } from '../../modules/local/samtools/bedcov'
 include { SAMTOOLS_FLAGSTAT                        } from '../../modules/local/samtools/flagstat'
+include { SAMTOOLS_STATS                           } from '../../modules/local/samtools/stats'
 include { SORTMERNA                                } from '../../modules/local/sortmerna'
 include { SORTMERNA_INDEX                          } from '../../modules/local/sortmerna/index'
 include { SUBREAD_FEATURECOUNTS                    } from '../../modules/local/subread/featurecounts'
@@ -22,7 +24,8 @@ include { SUBREAD_FEATURECOUNTS                    } from '../../modules/local/s
 // the copies of a genome or of a gene add up without counting it twice:
 //
 //   - DNA is counted on every contig, and on the stretches of unbinned or low-quality contigs
-//     that align to a passing MAG, which count as part of it;
+//     that align to a passing MAG, which count as part of it; every gene takes the mean and
+//     trimmed mean depth of its contig, over the bases of the library;
 //   - RNA, its rRNA reads removed first, is counted on every gene, and each gene's count goes to
 //     its catalog representative.
 //
@@ -204,6 +207,16 @@ workflow READ_MAPPING {
     ch_versions = ch_versions.mix(COVERM_GENOME.out.versions)
 
     //
+    // MODULES: the depth of every contig, handed down to its genes, and the bases of every DNA
+    // library it is scaled by
+    //
+    COVERM_CONTIG(ch_dna_bams.map { _meta, bams, bais -> [ [ id: 'contigs' ], bams, bais ] })
+    ch_versions = ch_versions.mix(COVERM_CONTIG.out.versions)
+
+    SAMTOOLS_STATS(ch_bams.filter { meta, _bam, _bai -> meta.molecule == 'dna' })
+    ch_versions = ch_versions.mix(SAMTOOLS_STATS.out.versions.first())
+
+    //
     // MODULE: gather every count, and add them up into final MAGs, finer groups and catalog genes
     //
     ch_library_sheet = ch_reads
@@ -217,6 +230,8 @@ workflow READ_MAPPING {
         ch_library_sheet,
         SAMTOOLS_FLAGSTAT.out.flagstat.map { _meta, flagstat -> flagstat }.toSortedList { a, b -> a.name <=> b.name },
         SAMTOOLS_BEDCOV.out.bedcov.map { _meta, bedcov -> bedcov }.toSortedList { a, b -> a.name <=> b.name },
+        SAMTOOLS_STATS.out.stats.map { _meta, stats -> stats }.toSortedList { a, b -> a.name <=> b.name },
+        COVERM_CONTIG.out.stats.map { _meta, stats -> stats }.ifEmpty([]),
         SUBREAD_FEATURECOUNTS.out.counts
             .flatMap { _meta, table, summary -> [ table, summary ] }
             .toSortedList { a, b -> a.name <=> b.name },
@@ -237,6 +252,7 @@ workflow READ_MAPPING {
             AGGREGATE_COUNTS.out.contig_dna_counts,
             AGGREGATE_COUNTS.out.link_dna_counts,
             AGGREGATE_COUNTS.out.mag_dna_profile,
+            AGGREGATE_COUNTS.out.contig_dna_profile,
             AGGREGATE_COUNTS.out.gene_rna_counts
         )
         .map { _meta, table -> table }
@@ -248,6 +264,8 @@ workflow READ_MAPPING {
     contig_dna_counts = AGGREGATE_COUNTS.out.contig_dna_counts // channel: [ meta, contig_dna_counts.tsv ]
     link_dna_counts   = AGGREGATE_COUNTS.out.link_dna_counts   // channel: [ meta, link_dna_counts.tsv ]
     mag_dna_profile   = AGGREGATE_COUNTS.out.mag_dna_profile   // channel: [ meta, mag_dna_profile.tsv ]
+    contig_dna_profile = AGGREGATE_COUNTS.out.contig_dna_profile // channel: [ meta, contig_dna_profile.tsv ]
+    gene_dna_abundance = AGGREGATE_COUNTS.out.gene_dna_abundance // channel: [ meta, gene_dna_abundance.tsv ]
     final_mag_dna     = AGGREGATE_COUNTS.out.final_mag_dna     // channel: [ meta, final_mag_dna.tsv ]
     fine_group_dna    = AGGREGATE_COUNTS.out.fine_group_dna    // channel: [ meta, fine_group_dna.tsv ]
     gene_rna_counts   = AGGREGATE_COUNTS.out.gene_rna_counts   // channel: [ meta, gene_rna_counts.tsv ]

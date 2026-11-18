@@ -145,11 +145,12 @@ of the indexes accordingly:
 
 - **tables**: `assembly`, `sample`, `assembly_sample`, `library`, `contig`, `mag`, `gene`,
   `catalog_sequence`, `contig_link`, and the raw counts `contig_dna_counts`, `link_dna_counts`,
-  `mag_dna_profile` and `gene_rna_counts`;
+  `mag_dna_profile`, `contig_dna_profile` and `gene_rna_counts`;
 - **views**, everything that is derived: `final_mag`, `catalog_gene`, `gene_context` (gene →
   contig → assembly → MAG → finer group → final MAG), `final_mag_dna`, `fine_group_dna`,
-  `gene_expression`, `mag_expression`, `gene_dna_depth`, `expression_ratio` (RNA TPM over the DNA
-  depth of the same sample) and `library_capture` (share of each DNA library on the final MAGs).
+  `gene_expression`, `mag_expression`, `gene_dna_depth` (raw depth: aligned bases over contig
+  length), `gene_dna_abundance` (CoverM mean and trimmed mean of the contigs, per Gbp of library),
+  `expression_ratio` (RNA TPM over the DNA depth of the same sample) and `library_capture` (share of each DNA library on the final MAGs).
 
 clustermg does no annotation. Annotations made outside it (GTDB-Tk on the final MAGs, functions on
 the catalog representatives) join on the same ids: annotate the catalog once, and

@@ -80,6 +80,12 @@ nextflow_pipeline {
             assert final_dna.s2_dna == libraries.s2_dna.primary_mapped as long && own.s2_dna == 0
             assert final_dna.s1_dna == own.s1_dna && own.s1_dna > 0
 
+            // DNA per catalog gene: the depth of its contigs over the gigabases of the library
+            assert [ 's1_dna', 's2_dna', 's3_dna' ].every { library -> (libraries[library].library_bases as long) > 0 }
+            def abundance = rows("$outputDir/genes/gene_dna_abundance.tsv")
+            assert abundance.collect { row -> row.library }.toSet() == [ 's1_dna', 's2_dna', 's3_dna' ] as Set
+            assert abundance.every { row -> (row.mean_per_gbp as double) >= 0 && (row.trimmed_mean_per_gbp as double) >= 0 }
+
             // RNA: SortMeRNA removes the 500 simulated rRNA pairs before mapping, and bwa-mem2 maps
             // the Illumina reads; reverse stranded, nearly every fragment left lands on a gene, and
             // the catalog adds the copies up without losing or adding one (to featureCounts' rounding)
